@@ -4,6 +4,7 @@
 #include "ICommand.h"
 #include "ConfigStructure.h"
 #include "Process.h"
+#include "MemoryManager.h"
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -32,7 +33,7 @@ private:
     void setupCommands();
 
     std::string m_lastScreenLs;
-
+    std::unique_ptr<MemoryManager> m_memoryManager;
 public:
     ConsoleShell();
     ~ConsoleShell() override = default;
@@ -65,4 +66,7 @@ public:
 
     void setLastSnapshot(const std::string& report) { m_lastScreenLs = report; }
     std::string getLastSnapshot() const { return m_lastScreenLs; }
+
+    void setMemoryManager(std::unique_ptr<MemoryManager> mgr) { m_memoryManager = std::move(mgr); }
+    MemoryManager* getMemoryManager() const { return m_memoryManager.get(); }
 };

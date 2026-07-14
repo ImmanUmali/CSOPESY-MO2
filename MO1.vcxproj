@@ -143,6 +143,7 @@
     <ClCompile Include="ConsoleShell.cpp" />
     <ClCompile Include="CPUCore.cpp" />
     <ClCompile Include="FCFS.cpp" />
+    <ClCompile Include="MemoryManager.cpp" />
     <ClCompile Include="MO1.cpp" />
     <ClCompile Include="Process.cpp" />
     <ClCompile Include="RR.cpp" />
@@ -158,6 +159,8 @@
     <ClInclude Include="ICommand.h" />
     <ClInclude Include="Instruction.h" />
     <ClInclude Include="ISystemContext.h" />
+    <ClInclude Include="MemoryBlock.h" />
+    <ClInclude Include="MemoryManager.h" />
     <ClInclude Include="MultiplexerCommands.h" />
     <ClInclude Include="Process.h" />
     <ClInclude Include="RR.h" />

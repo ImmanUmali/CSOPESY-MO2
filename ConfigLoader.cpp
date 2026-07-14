@@ -85,15 +85,48 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
             tempConfig.delayPerExec = static_cast<uint32_t>(val);
             itemsParsed++;
         }
+
+
+        else if (key == "max-overall-mem") {
+            long long val = std::stoll(valueStr);
+            if (val < 1) {
+                std::cerr << "Validation Error: max-overall-mem must be >= 1.\n";
+                return false;
+            }
+            tempConfig.maxOverallMem = static_cast<uint32_t>(val);
+            itemsParsed++;
+        }
+        else if (key == "mem-per-frame") {
+            long long val = std::stoll(valueStr);
+            if (val < 1) {
+                std::cerr << "Validation Error: mem-per-frame must be >= 1.\n";
+                return false;
+            }
+            tempConfig.memPerFrame = static_cast<uint32_t>(val);
+            itemsParsed++;
+        }
+        else if (key == "mem-per-proc") {
+            long long val = std::stoll(valueStr);
+            if (val < 1) {
+                std::cerr << "Validation Error: mem-per-proc must be >= 1.\n";
+                return false;
+            }
+            tempConfig.memPerProc = static_cast<uint32_t>(val);
+            itemsParsed++;
+        }
     }
 
-    if (itemsParsed < 7) {
+    if (itemsParsed < 10) {
         std::cerr << "Validation Error: Missing parameters in config.txt. Parse count: " << itemsParsed << "/7\n";
         return false;
     }
 
     if (tempConfig.minIns > tempConfig.maxIns) {
         std::cerr << "Validation Error: min-ins cannot be greater than max-ins.\n";
+        return false;
+    }
+    if (tempConfig.memPerProc > tempConfig.maxOverallMem) {
+        std::cerr << "Validation Error: mem-per-proc cannot be larger than max-overall-mem.\n";
         return false;
     }
 
