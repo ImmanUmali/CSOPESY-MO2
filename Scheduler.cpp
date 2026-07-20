@@ -2,12 +2,12 @@
 #include "Process.h"
 #include <chrono>
 
-Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec)
+Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum,
+    unsigned int delayPerExec, uint32_t maxMem, uint32_t memPerProc)
     : m_schedulerType(type),
     m_rrScheduler(quantum),
     m_delayPerExec(delayPerExec),
-    m_cpuCycles(0),
-    m_running(false)
+    m_memoryManager(maxMem, memPerProc)
 {
     for (int i = 0; i < numCpu; ++i) {
         m_cpuCores.emplace_back(i);
@@ -94,6 +94,8 @@ void Scheduler::threadLoop() {
                         auto process = cpu.getCurrentProcess();
                         if (process && process->isFinished()) {
                             process->setState(ProcessState::FINISHED);
+                            m_memoryManager.freeMemory(process->getName());
+                            m_allocatedProcesses.erase(process->getName());
                             cpu.assignProcess(nullptr);
                             cpu.resetCyclesExecuted();
                         }
@@ -129,6 +131,8 @@ void Scheduler::threadLoop() {
                     // Finished processes have priority
                     if (process->isFinished()) {
                         process->setState(ProcessState::FINISHED);
+                        m_memoryManager.freeMemory(process->getName());
+                        m_allocatedProcesses.erase(process->getName());
                         cpu.assignProcess(nullptr);
                         cpu.resetCyclesExecuted();
                     }
@@ -146,9 +150,24 @@ void Scheduler::threadLoop() {
                     if (cpu.isIdle()) {
                         auto proc = m_rrScheduler.getNextProcess();
                         if (proc) {
-                            proc->setState(ProcessState::RUNNING);
-                            cpu.assignProcess(proc);
-                            cpu.resetCyclesExecuted();
+                            bool hasMemory = (m_allocatedProcesses.find(proc->getName()) != m_allocatedProcesses.end());
+                            
+                            if (!hasMemory) {
+                                // Attempt First-Fit Allocation
+                                if (m_memoryManager.allocateFirstFit(proc->getName())) {
+                                    m_allocatedProcesses.insert(proc->getName());
+                                    hasMemory = true;
+                                }
+                            }
+                            
+                            if (hasMemory) {
+                                proc->setState(ProcessState::RUNNING);
+                                cpu.assignProcess(proc);
+                                cpu.resetCyclesExecuted();
+                            } else {
+                                // Memory Full: Revert process to tail of Ready Queue
+                                m_rrScheduler.addProcess(proc);
+                            }
                         }
                     }
                 }

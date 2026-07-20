@@ -61,7 +61,9 @@ public:
             parsedConfig.scheduler,
             parsedConfig.numCpu,
             parsedConfig.quantumCycles,
-            parsedConfig.delayPerExec
+            parsedConfig.delayPerExec,
+            parsedConfig.maxOverallMem,
+            parsedConfig.memPerProc
         );
 
         context.setScheduler(scheduler);

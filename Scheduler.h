@@ -4,9 +4,11 @@
 #include <thread>
 #include <atomic>
 #include <memory>
+#include <unordered_set>
 #include "CPUCore.h"
 #include "FCFS.h"
 #include "RR.h"
+#include "MemoryManager.h"
 
 class Scheduler {
 private:
@@ -15,6 +17,7 @@ private:
     FCFSScheduler m_fcfsScheduler;           // Ready Queue owned here
     RoundRobinScheduler m_rrScheduler;       // Ready Queue owned here
     unsigned int m_delayPerExec;
+    MemoryManager m_memoryManager;
 
     // Threading & Counters
     std::atomic<unsigned int> m_cpuCycles;   // Master CPU cycle counter
@@ -29,11 +32,12 @@ private:
     mutable std::mutex m_schedulerMutex; 
     std::vector<std::shared_ptr<Process>> m_allTrackedProcesses; // Universal tracker for screen -ls
     std::vector<std::shared_ptr<Process>> m_waitingProcesses;
+    std::unordered_set<std::string> m_allocatedProcesses;
 
     void threadLoop();                       // Background execution loop
 
 public:
-    Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec);
+    Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, uint32_t maxMem, uint32_t memPerProc);
     ~Scheduler();
 
     void start();                            // Spins up the background thread
