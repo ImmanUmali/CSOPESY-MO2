@@ -1,7 +1,9 @@
 #include "PagedMemoryManager.h"
 #include <sstream>
 
-PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize) {
+PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize)
+    : m_frameTable(maxMem / frameSize) { // Initialize FrameTable with total frames
+
     // Initialize protected variables from IMemoryAllocator
     this->maximumSize = maxMem;
     this->currentAllocatedSize = 0;
@@ -9,46 +11,38 @@ PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize) {
 
     this->m_frameSize = frameSize;
 
-    // Calculate total frames and initialize Frame Table
-    this->m_numFrames = maxMem / frameSize;
-    this->m_frameTable.resize(this->m_numFrames, false); // All frames initially free
-
-    // Start virtual addresses at a simulated offset
-    this->m_virtualAddressCounter = 0x1000;
+    // Start virtual addresses at a simulated offset (e.g., 0x1000)
+    this->m_virtualAddressCounter = 4096;
 }
 
 void* PagedMemoryManager::allocate(size_t size) {
     if (size == 0) return nullptr;
 
-    // 1. Calculate required frames (ceiling division)
-    size_t framesNeeded = (size + m_frameSize - 1) / m_frameSize;
+    // 1. Calculate required pages (ceiling division)
+    size_t pagesNeeded = (size + m_frameSize - 1) / m_frameSize;
 
-    // 2. Check if we have enough total free frames (Phase 4 backing store hook goes here later)
-    size_t freeFramesAvailable = 0;
-    for (bool isAllocated : m_frameTable) {
-        if (!isAllocated) freeFramesAvailable++;
+    // 2. Check if enough physical frames are available
+    if (m_frameTable.getFreeFrameCount() < pagesNeeded) {
+        return nullptr; // Out of physical memory (Phase 4 will handle swapping here)
     }
 
-    if (freeFramesAvailable < framesNeeded) {
-        return nullptr; // Out of physical memory
+    // 3. Create and initialize a PageTable for this allocation
+    PageTable newPageTable;
+    newPageTable.initialize(pagesNeeded);
+
+    // 4. Allocate frames and map them in the PageTable
+    for (size_t logicalPage = 0; logicalPage < pagesNeeded; ++logicalPage) {
+        size_t physicalFrame = m_frameTable.allocateFreeFrame();
+        newPageTable.mapPage(logicalPage, physicalFrame);
     }
 
-    // 3. Allocate the frames (non-contiguous is fine!)
-    std::vector<size_t> allocatedFrames;
-    for (size_t i = 0; i < m_numFrames && allocatedFrames.size() < framesNeeded; ++i) {
-        if (!m_frameTable[i]) {
-            m_frameTable[i] = true; // Mark frame as allocated
-            allocatedFrames.push_back(i);
-        }
-    }
-
-    // 4. Generate a simulated virtual address pointer
+    // 5. Generate a simulated virtual address pointer
     void* virtualAddress = (void*)(uintptr_t)m_virtualAddressCounter;
-    m_virtualAddressCounter += (framesNeeded * m_frameSize); // Increment by allocated virtual space
+    m_virtualAddressCounter += (pagesNeeded * m_frameSize); // Increment by virtual space used
 
-    // 5. Update interface tracker and store mapping
-    this->currentAllocatedSize += (framesNeeded * m_frameSize);
-    m_pageMap[virtualAddress] = allocatedFrames;
+    // 6. Store the PageTable and update metrics
+    m_pageDirectory[virtualAddress] = newPageTable;
+    this->currentAllocatedSize += (pagesNeeded * m_frameSize);
 
     return virtualAddress;
 }
@@ -56,42 +50,40 @@ void* PagedMemoryManager::allocate(size_t size) {
 void PagedMemoryManager::deallocate(void* ptr) {
     if (!ptr) return;
 
-    // 1. Look up the simulated virtual address in our Page Map
-    auto it = m_pageMap.find(ptr);
-    if (it == m_pageMap.end()) {
+    // 1. Locate the PageTable associated with this virtual address
+    auto it = m_pageDirectory.find(ptr);
+    if (it == m_pageDirectory.end()) {
         return; // Invalid pointer or already freed
     }
 
-    // 2. Free the associated physical frames
-    const std::vector<size_t>& allocatedFrames = it->second;
-    for (size_t frameIndex : allocatedFrames) {
-        if (frameIndex < m_numFrames) {
-            m_frameTable[frameIndex] = false; // Mark frame as free
+    PageTable& pageTable = it->second;
+    size_t numPages = pageTable.getNumPages();
+
+    // 2. Iterate through the PageTable and free the physical frames
+    for (size_t logicalPage = 0; logicalPage < numPages; ++logicalPage) {
+        const PageTableEntry& pte = pageTable.getEntry(logicalPage);
+        if (pte.isValid) {
+            m_frameTable.freeFrame(pte.frameIndex);
         }
     }
 
-    // 3. Update interface tracker and remove mapping
-    this->currentAllocatedSize -= (allocatedFrames.size() * m_frameSize);
-    m_pageMap.erase(it);
+    // 3. Update metrics and remove the PageTable
+    this->currentAllocatedSize -= (numPages * m_frameSize);
+    m_pageDirectory.erase(it);
 }
 
 std::string PagedMemoryManager::visualizeMemory() {
     std::stringstream ss;
-    ss << "--- Memory Visualization (Paging) ---\n";
+    ss << "--- Memory Visualization (Paging Phase 3) ---\n";
     ss << "Total Memory: " << maximumSize << " | Allocated: " << currentAllocatedSize << "\n";
-    ss << "Frame Size: " << m_frameSize << " | Total Frames: " << m_numFrames << "\n";
-
-    size_t freeFrames = 0;
-    for (bool isAllocated : m_frameTable) {
-        if (!isAllocated) freeFrames++;
-    }
-    ss << "Free Frames: " << freeFrames << " | Used Frames: " << (m_numFrames - freeFrames) << "\n\n";
+    ss << "Frame Size: " << m_frameSize << " | Total Frames: " << m_frameTable.getTotalFrames() << "\n";
+    ss << "Free Frames: " << m_frameTable.getFreeFrameCount() << "\n\n";
 
     ss << "--- Frame Table Status ---\n";
-    for (size_t i = 0; i < m_numFrames; ++i) {
-        ss << "Frame " << i << ": [" << (m_frameTable[i] ? "USED" : "FREE") << "]  ";
-        // Newline every 5 frames for readability
-        if ((i + 1) % 5 == 0) ss << "\n";
+    size_t totalFrames = m_frameTable.getTotalFrames();
+    for (size_t i = 0; i < totalFrames; ++i) {
+        ss << "Frame " << i << ": [" << (m_frameTable.isFrameFree(i) ? "FREE" : "USED") << "]  ";
+        if ((i + 1) % 5 == 0) ss << "\n"; // Newline every 5 frames for readability
     }
     ss << "\n";
 
