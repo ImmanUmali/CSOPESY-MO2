@@ -139,6 +139,7 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BackingStore.cpp" />
     <ClCompile Include="ConfigLoader.cpp" />
     <ClCompile Include="ConsoleShell.cpp" />
     <ClCompile Include="CPUCore.cpp" />
@@ -152,6 +153,7 @@
     <ClCompile Include="Scheduler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BackingStore.h" />
     <ClInclude Include="ConfigLoader.h" />
     <ClInclude Include="ConfigStructure.h" />
     <ClInclude Include="ConsoleShell.h" />

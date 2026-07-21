@@ -2,6 +2,8 @@
 #include "IMemoryAllocator.h"
 #include "FrameTable.h"
 #include "PageTable.h"
+#include "BackingStore.h"
+#include <list>
 #include <unordered_map>
 #include <string>
 #include <cstdint>
@@ -18,6 +20,8 @@ private:
 
     // Counter to generate unique simulated virtual addresses
     size_t m_virtualAddressCounter;
+    BackingStore m_backingStore;
+    std::list<size_t> m_fifoQueue;
 
 public:
     PagedMemoryManager(size_t maxMem, size_t frameSize);

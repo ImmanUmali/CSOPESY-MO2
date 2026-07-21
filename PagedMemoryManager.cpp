@@ -18,29 +18,47 @@ PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize)
 void* PagedMemoryManager::allocate(size_t size) {
     if (size == 0) return nullptr;
 
-    // 1. Calculate required pages (ceiling division)
     size_t pagesNeeded = (size + m_frameSize - 1) / m_frameSize;
 
-    // 2. Check if enough physical frames are available
-    if (m_frameTable.getFreeFrameCount() < pagesNeeded) {
-        return nullptr; // Out of physical memory (Phase 4 will handle swapping here)
-    }
+    // We can no longer reject allocation if physical memory is full!
+    // Instead, we proceed, relying on the backing store for space.
 
-    // 3. Create and initialize a PageTable for this allocation
     PageTable newPageTable;
     newPageTable.initialize(pagesNeeded);
 
-    // 4. Allocate frames and map them in the PageTable
+    // Pre-calculate the virtual address so we can assign it as the owner
+    void* virtualAddress = (void*)(uintptr_t)m_virtualAddressCounter;
+    m_virtualAddressCounter += (pagesNeeded * m_frameSize);
+
     for (size_t logicalPage = 0; logicalPage < pagesNeeded; ++logicalPage) {
         size_t physicalFrame = m_frameTable.allocateFreeFrame();
+
+        // --- PAGE REPLACEMENT LOGIC (FIFO) ---
+        if (physicalFrame == SIZE_MAX) {
+            // Memory is full. Evict the oldest frame.
+            physicalFrame = m_fifoQueue.front();
+            m_fifoQueue.pop_front();
+
+            // Find out who owns this victim frame
+            void* victimAddress = nullptr;
+            size_t victimLogicalPage = 0;
+            m_frameTable.getFrameOwner(physicalFrame, victimAddress, victimLogicalPage);
+
+            // Invalidate the victim's Page Table Entry
+            m_pageDirectory[victimAddress].unmapPage(victimLogicalPage);
+
+            // Tally the swap to disk
+            m_backingStore.pageOut();
+        }
+
+        // Assign the frame to the new logical page
+        m_frameTable.setFrameOwner(physicalFrame, virtualAddress, logicalPage);
         newPageTable.mapPage(logicalPage, physicalFrame);
+
+        // Add this frame to the back of the FIFO queue
+        m_fifoQueue.push_back(physicalFrame);
     }
 
-    // 5. Generate a simulated virtual address pointer
-    void* virtualAddress = (void*)(uintptr_t)m_virtualAddressCounter;
-    m_virtualAddressCounter += (pagesNeeded * m_frameSize); // Increment by virtual space used
-
-    // 6. Store the PageTable and update metrics
     m_pageDirectory[virtualAddress] = newPageTable;
     this->currentAllocatedSize += (pagesNeeded * m_frameSize);
 
@@ -50,24 +68,24 @@ void* PagedMemoryManager::allocate(size_t size) {
 void PagedMemoryManager::deallocate(void* ptr) {
     if (!ptr) return;
 
-    // 1. Locate the PageTable associated with this virtual address
     auto it = m_pageDirectory.find(ptr);
-    if (it == m_pageDirectory.end()) {
-        return; // Invalid pointer or already freed
-    }
+    if (it == m_pageDirectory.end()) return;
 
     PageTable& pageTable = it->second;
     size_t numPages = pageTable.getNumPages();
 
-    // 2. Iterate through the PageTable and free the physical frames
     for (size_t logicalPage = 0; logicalPage < numPages; ++logicalPage) {
         const PageTableEntry& pte = pageTable.getEntry(logicalPage);
+
+        // Only free physical frames if the page is currently in RAM
         if (pte.isValid) {
             m_frameTable.freeFrame(pte.frameIndex);
+
+            // Remove it from the FIFO replacement queue
+            m_fifoQueue.remove(pte.frameIndex);
         }
     }
 
-    // 3. Update metrics and remove the PageTable
     this->currentAllocatedSize -= (numPages * m_frameSize);
     m_pageDirectory.erase(it);
 }
