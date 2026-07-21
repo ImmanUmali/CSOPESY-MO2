@@ -145,6 +145,7 @@
     <ClCompile Include="FCFS.cpp" />
     <ClCompile Include="MemoryManager.cpp" />
     <ClCompile Include="MO1.cpp" />
+    <ClCompile Include="PagedMemoryManager.cpp" />
     <ClCompile Include="Process.cpp" />
     <ClCompile Include="RR.cpp" />
     <ClCompile Include="Scheduler.cpp" />
@@ -157,11 +158,13 @@
     <ClInclude Include="CPUCore.h" />
     <ClInclude Include="FCFS.h" />
     <ClInclude Include="ICommand.h" />
+    <ClInclude Include="IMemoryAllocator.h" />
     <ClInclude Include="Instruction.h" />
     <ClInclude Include="ISystemContext.h" />
     <ClInclude Include="MemoryBlock.h" />
     <ClInclude Include="MemoryManager.h" />
     <ClInclude Include="MultiplexerCommands.h" />
+    <ClInclude Include="PagedMemoryManager.h" />
     <ClInclude Include="Process.h" />
     <ClInclude Include="RR.h" />
     <ClInclude Include="Scheduler.h" />

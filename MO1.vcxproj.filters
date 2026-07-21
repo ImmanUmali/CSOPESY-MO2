@@ -42,6 +42,9 @@
     <ClCompile Include="MemoryManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PagedMemoryManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ICommand.h">
@@ -87,6 +90,12 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="MemoryManager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IMemoryAllocator.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PagedMemoryManager.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
