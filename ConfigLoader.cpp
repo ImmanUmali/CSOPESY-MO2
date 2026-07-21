@@ -117,7 +117,7 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
     }
 
     if (itemsParsed < 10) {
-        std::cerr << "Validation Error: Missing parameters in config.txt. Parse count: " << itemsParsed << "/7\n";
+        std::cerr << "Validation Error: Missing parameters in config.txt. Parse count: " << itemsParsed << "/10\n";
         return false;
     }
 
