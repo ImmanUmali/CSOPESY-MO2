@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include "Instruction.h"
+#include "IMemoryAllocator.h"
 
 enum class ProcessState { READY, RUNNING, WAITING, FINISHED };
 
@@ -20,10 +21,12 @@ private:
     std::unordered_map<std::string, int> m_symbolTable;
     unsigned int m_remainingSleepTicks = 0;
     void evaluateInstruction(const Instruction& ins, int coreId);
+    void* m_memoryPtr;
+    IMemoryAllocator* m_allocator;
 
 public:
-    Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns);
-
+    Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns, IMemoryAllocator* allocator, size_t memRequired);
+    ~Process();
     int getPid() const { return m_pid; }
     std::string getName() const { return m_name; }
     ProcessState getState() const { return m_state; }
@@ -40,4 +43,6 @@ public:
     void decrementSleep() { if (m_remainingSleepTicks > 0) m_remainingSleepTicks--; }
     unsigned int getRemainingSleep() const { return m_remainingSleepTicks; }
     void setSleepTicks(unsigned int ticks) { m_remainingSleepTicks = ticks; }
+
+    void* getMemoryPtr() const { return m_memoryPtr; }
 };

@@ -107,3 +107,46 @@ std::string PagedMemoryManager::visualizeMemory() {
 
     return ss.str();
 }
+
+bool PagedMemoryManager::performMemoryAccess(void* ptr) {
+    if (!ptr) return false;
+
+    auto it = m_pageDirectory.find(ptr);
+    if (it == m_pageDirectory.end()) return false;
+
+    PageTable& pageTable = it->second;
+    bool pageFaultOccurred = false;
+
+    // Check all pages belonging to this process
+    for (size_t logicalPage = 0; logicalPage < pageTable.getNumPages(); ++logicalPage) {
+        PageTableEntry pte = pageTable.getEntry(logicalPage);
+
+        // If the page is invalid (on disk), we have a page fault
+        if (!pte.isValid) {
+            pageFaultOccurred = true;
+            m_backingStore.pageIn(); // Tally num-paged-in
+
+            size_t physicalFrame = m_frameTable.allocateFreeFrame();
+
+            // Apply FIFO Page Replacement if physical memory is full
+            if (physicalFrame == SIZE_MAX) {
+                physicalFrame = m_fifoQueue.front();
+                m_fifoQueue.pop_front();
+
+                void* victimAddress = nullptr;
+                size_t victimLogicalPage = 0;
+                m_frameTable.getFrameOwner(physicalFrame, victimAddress, victimLogicalPage);
+
+                m_pageDirectory[victimAddress].unmapPage(victimLogicalPage);
+                m_backingStore.pageOut(); // Evict victim to disk
+            }
+
+            // Bring the faulting page into the frame
+            m_frameTable.setFrameOwner(physicalFrame, ptr, logicalPage);
+            pageTable.mapPage(logicalPage, physicalFrame);
+            m_fifoQueue.push_back(physicalFrame);
+        }
+    }
+
+    return pageFaultOccurred;
+}

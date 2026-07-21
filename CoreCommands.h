@@ -4,7 +4,7 @@
 #include "ISystemContext.h"
 #include "ConfigLoader.h"
 #include "ConsoleShell.h"
-#include "MemoryManager.h"
+#include "PagedMemoryManager.h"
 #include <iostream>
 
 class ExitCommand : public ICommand {
@@ -39,7 +39,8 @@ public:
         context.setInitialized(true);
 
         ConsoleShell& shell = static_cast<ConsoleShell&>(context);
-        auto memManager = std::make_unique<MemoryManager>(parsedConfig.maxOverallMem, parsedConfig.memPerProc);
+        auto memManager = std::make_unique<PagedMemoryManager>(parsedConfig.maxOverallMem, parsedConfig.memPerFrame);
+        IMemoryAllocator* allocatorPtr = memManager.get();
         shell.setMemoryManager(std::move(memManager));
 
 
@@ -61,11 +62,30 @@ public:
             parsedConfig.scheduler,
             parsedConfig.numCpu,
             parsedConfig.quantumCycles,
-            parsedConfig.delayPerExec
+            parsedConfig.delayPerExec,
+            allocatorPtr,
+            parsedConfig.memPerProc
         );
 
         context.setScheduler(scheduler);
         scheduler->start();
         std::cout << "Background scheduler thread spawned successfully!\n" << std::endl;
+    }
+};
+
+
+class VmStatCommand : public ICommand {
+public:
+    std::string getName() const override { return "vmstat"; }
+    bool isBypassingInitialization() const override { return false; }
+
+    void execute(ISystemContext& context, const std::vector<std::string>& args) override {
+        ConsoleShell& shell = static_cast<ConsoleShell&>(context);
+        if (shell.getMemoryManager()) {
+            std::cout << shell.getMemoryManager()->visualizeMemory() << "\n";
+        }
+        else {
+            std::cout << "Error: Memory Manager not initialized.\n";
+        }
     }
 };

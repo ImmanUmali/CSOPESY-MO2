@@ -46,6 +46,7 @@ void ConsoleShell::setupCommands() {
     registerCommand(std::make_unique<SchedulerStartCommand>());
     registerCommand(std::make_unique<SchedulerStopCommand>());
     registerCommand(std::make_unique<ReportUtilCommand>());
+    registerCommand(std::make_unique<VmStatCommand>());
 }
 
 Process* ConsoleShell::findProcess(const std::string& name) {

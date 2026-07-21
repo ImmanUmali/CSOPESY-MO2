@@ -1,5 +1,6 @@
 #include "CPUCore.h"
 #include "Process.h"
+#include "PagedMemoryManager.h"
 
 CPUCore::CPUCore(int id) : m_id(id), m_cyclesExecuted(0) {
 }
@@ -12,10 +13,28 @@ void CPUCore::assignProcess(std::shared_ptr<Process> process) {
     m_currentProcess = process;
 }
 
-void CPUCore::executeCycle() {
+void CPUCore::executeCycle(IMemoryAllocator* globalAllocator) {
     if (isIdle()) return;
 
     m_cyclesExecuted++;
+
+    // Phase 5: Simulate memory access before executing the instruction
+    void* procMem = m_currentProcess->getMemoryPtr();
+
+    // Attempt to cast the interface to our concrete PagedMemoryManager
+    PagedMemoryManager* pagedManager = dynamic_cast<PagedMemoryManager*>(globalAllocator);
+
+    if (pagedManager && procMem) {
+        bool pageFault = pagedManager->performMemoryAccess(procMem);
+
+        if (pageFault) {
+            // Memory was on disk. The MMU just handled it and swapped it into RAM.
+            // This cycle was consumed handling the page fault, so we skip execution.
+            return;
+        }
+    }
+
+    // If no page fault (or using flat memory), execute the next line normally
     m_currentProcess->executeNextLine(m_id);
 }
 

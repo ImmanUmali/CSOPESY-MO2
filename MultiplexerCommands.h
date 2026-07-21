@@ -114,7 +114,14 @@ public:
             SystemConfig cfg = shell.getConfig();
             int newPid = shell.generateNextPid();
             
-            auto newProc = std::make_shared<Process>(newPid, processName, cfg.minIns, cfg.maxIns);
+            auto newProc = std::make_shared<Process>(
+                newPid,
+                processName,
+                cfg.minIns,
+                cfg.maxIns,
+                shell.getMemoryManager(),
+                cfg.memPerProc
+            );
 
             shell.addProcess(newProc); 
             

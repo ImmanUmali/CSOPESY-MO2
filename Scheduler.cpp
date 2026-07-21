@@ -2,12 +2,14 @@
 #include "Process.h"
 #include <chrono>
 
-Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec)
+Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t memPerProc)
     : m_schedulerType(type),
     m_rrScheduler(quantum),
     m_delayPerExec(delayPerExec),
     m_cpuCycles(0),
-    m_running(false)
+    m_running(false),
+    m_allocator(allocator),   
+    m_memPerProc(memPerProc)  
 {
     for (int i = 0; i < numCpu; ++i) {
         m_cpuCores.emplace_back(i);
@@ -58,7 +60,7 @@ void Scheduler::threadLoop() {
                 int pid = ++m_generatedPidCounter;
                 std::string processName = "p" + std::to_string(pid);
 
-                auto batchProc = std::make_shared<Process>(pid, processName, m_minIns, m_maxIns);
+                auto batchProc = std::make_shared<Process>(pid, processName, m_minIns, m_maxIns, m_allocator, m_memPerProc);
 
                 // Keep the state explicit
                 batchProc->setState(ProcessState::READY);
@@ -89,7 +91,7 @@ void Scheduler::threadLoop() {
                 for (auto& cpu : m_cpuCores) {
                     if (!cpu.isIdle()) {
                         activeWorkDone = true;
-                        cpu.executeCycle();
+                        cpu.executeCycle(m_allocator);
 
                         auto process = cpu.getCurrentProcess();
                         if (process && process->isFinished()) {
@@ -116,7 +118,7 @@ void Scheduler::threadLoop() {
                 for (auto& cpu : m_cpuCores) {
                     if (!cpu.isIdle()) {
                         activeWorkDone = true;
-                        cpu.executeCycle();
+                        cpu.executeCycle(m_allocator);
                     }
                 }
 

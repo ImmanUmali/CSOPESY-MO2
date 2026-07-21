@@ -7,6 +7,7 @@
 #include "CPUCore.h"
 #include "FCFS.h"
 #include "RR.h"
+#include "IMemoryAllocator.h"
 
 class Scheduler {
 private:
@@ -30,10 +31,13 @@ private:
     std::vector<std::shared_ptr<Process>> m_allTrackedProcesses; // Universal tracker for screen -ls
     std::vector<std::shared_ptr<Process>> m_waitingProcesses;
 
+    IMemoryAllocator* m_allocator;
+    size_t m_memPerProc;
+
     void threadLoop();                       // Background execution loop
 
 public:
-    Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec);
+    Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t memPerProc);
     ~Scheduler();
 
     void start();                            // Spins up the background thread

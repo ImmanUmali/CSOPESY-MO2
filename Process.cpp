@@ -62,8 +62,15 @@ Instruction generateRandomInstruction(int currentDepth) {
     return ins;
 }
 
-Process::Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns)
-    : m_pid(pid), m_name(name), m_state(ProcessState::READY), m_commandCounter(0) {
+Process::Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns, IMemoryAllocator* allocator, size_t memRequired)
+    : m_pid(pid), m_name(name), m_state(ProcessState::READY), m_commandCounter(0), m_allocator(allocator) {
+
+    if (m_allocator) {
+        m_memoryPtr = m_allocator->allocate(memRequired);
+    }
+    else {
+        m_memoryPtr = nullptr;
+    }
 
     m_timestamp = getCurrentTimestampString();
 
@@ -155,4 +162,11 @@ void Process::executeNextLine(int coreId) {
     evaluateInstruction(activeIns, coreId);
 
     m_commandCounter++;
+}
+
+Process::~Process() {
+    if (m_allocator && m_memoryPtr) {
+        m_allocator->deallocate(m_memoryPtr);
+        m_memoryPtr = nullptr;
+    }
 }

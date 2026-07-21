@@ -90,7 +90,7 @@ uint32_t MemoryManager::calculateExternalFragmentation() const {
     uint32_t fragSum = 0;
     for (const auto& block : m_blocks) {
         if (!block.isAllocated && block.size < m_memPerProc) {
-            fragSum += block.size;
+            fragSum += static_cast<uint32_t>(block.size);
         }
     }
     return fragSum;

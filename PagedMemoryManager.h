@@ -27,8 +27,9 @@ public:
     PagedMemoryManager(size_t maxMem, size_t frameSize);
     ~PagedMemoryManager() = default;
 
-    // --- IMemoryAllocator Overrides ---
+    // IMemoryAllocator Overrides 
     void* allocate(size_t size) override;
     void deallocate(void* ptr) override;
     std::string visualizeMemory() override;
+    bool performMemoryAccess(void* ptr);
 };
