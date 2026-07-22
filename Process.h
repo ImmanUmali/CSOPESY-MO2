@@ -45,4 +45,5 @@ public:
     void setSleepTicks(unsigned int ticks) { m_remainingSleepTicks = ticks; }
 
     void* getMemoryPtr() const { return m_memoryPtr; }
+    void reclaimMemory();
 };

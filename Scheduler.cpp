@@ -96,6 +96,7 @@ void Scheduler::threadLoop() {
                         auto process = cpu.getCurrentProcess();
                         if (process && process->isFinished()) {
                             process->setState(ProcessState::FINISHED);
+                            process->reclaimMemory();
                             cpu.assignProcess(nullptr);
                             cpu.resetCyclesExecuted();
                         }
@@ -131,6 +132,7 @@ void Scheduler::threadLoop() {
                     // Finished processes have priority
                     if (process->isFinished()) {
                         process->setState(ProcessState::FINISHED);
+                        process->reclaimMemory();
                         cpu.assignProcess(nullptr);
                         cpu.resetCyclesExecuted();
                     }

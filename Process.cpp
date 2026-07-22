@@ -164,9 +164,14 @@ void Process::executeNextLine(int coreId) {
     m_commandCounter++;
 }
 
-Process::~Process() {
+void Process::reclaimMemory() {
     if (m_allocator && m_memoryPtr) {
         m_allocator->deallocate(m_memoryPtr);
-        m_memoryPtr = nullptr;
+        m_memoryPtr = nullptr; // Ensure we don't double-free
     }
+}
+
+Process::~Process() {
+    // Fallback in case the process is destroyed before finishing naturally
+    reclaimMemory();
 }
