@@ -9,6 +9,7 @@ public:
 		FLAT_MEMORY_ALLOCATOR,
 		PAGING,
 	};
+	virtual ~IMemoryAllocator() = default;
 	virtual void* allocate(size_t size) = 0;
 	virtual void deallocate(void* ptr) = 0;
 	virtual std::string visualizeMemory() = 0;

@@ -20,7 +20,8 @@ private:
 
 public:
     MemoryManager(uint32_t maxOverallMem, uint32_t memPerProc);
-    ~MemoryManager() = default;
+    // ~MemoryManager() = default;
+    ~MemoryManager() override = default;
 
     // Core first-fit logic
     bool allocateFirstFit(const std::string& processName);

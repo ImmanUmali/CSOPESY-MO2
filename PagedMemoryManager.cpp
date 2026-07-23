@@ -27,8 +27,13 @@ void* PagedMemoryManager::allocate(size_t size) {
     newPageTable.initialize(pagesNeeded);
 
     // Pre-calculate the virtual address so we can assign it as the owner
-    void* virtualAddress = (void*)(uintptr_t)m_virtualAddressCounter;
+    // void* virtualAddress = (void*)(uintptr_t)m_virtualAddressCounter;
+    void* virtualAddress = reinterpret_cast<void*>(m_virtualAddressCounter);
     m_virtualAddressCounter += (pagesNeeded * m_frameSize);
+
+    if (m_virtualAddressCounter > 0x7FFFFFFF) {
+        m_virtualAddressCounter = 4096;
+    }
 
     for (size_t logicalPage = 0; logicalPage < pagesNeeded; ++logicalPage) {
         size_t physicalFrame = m_frameTable.allocateFreeFrame();
@@ -90,7 +95,7 @@ void PagedMemoryManager::deallocate(void* ptr) {
     m_pageDirectory.erase(it);
 }
 
-std::string PagedMemoryManager::visualizeMemory() {
+/* std::string PagedMemoryManager::visualizeMemory() {
     std::stringstream ss;
     ss << "--- Memory Visualization (Paging Phase 3) ---\n";
     ss << "Total Memory: " << maximumSize << " | Allocated: " << currentAllocatedSize << "\n";
@@ -102,6 +107,30 @@ std::string PagedMemoryManager::visualizeMemory() {
     for (size_t i = 0; i < totalFrames; ++i) {
         ss << "Frame " << i << ": [" << (m_frameTable.isFrameFree(i) ? "FREE" : "USED") << "]  ";
         if ((i + 1) % 5 == 0) ss << "\n"; // Newline every 5 frames for readability
+    }
+    ss << "\n";
+
+    return ss.str();
+}
+*/
+
+std::string PagedMemoryManager::visualizeMemory() {
+    // 1. Calculate actual Physical RAM currently in use (0 to 128)
+    size_t occupiedFrames = m_frameTable.getTotalFrames() - m_frameTable.getFreeFrameCount();
+    size_t physicalAllocated = occupiedFrames * m_frameSize;
+
+    std::stringstream ss;
+    ss << "--- Memory Visualization (Paging Phase 3) ---\n";
+    ss << "Total Physical Memory: " << maximumSize << " | Physical Allocated: " << physicalAllocated << "\n";
+    ss << "Total Virtual Allocated: " << currentAllocatedSize << " bytes\n"; 
+    ss << "Frame Size: " << m_frameSize << " | Total Frames: " << m_frameTable.getTotalFrames() << "\n";
+    ss << "Free Frames: " << m_frameTable.getFreeFrameCount() << "\n\n";
+
+    ss << "--- Frame Table Status ---\n";
+    size_t totalFrames = m_frameTable.getTotalFrames();
+    for (size_t i = 0; i < totalFrames; ++i) {
+        ss << "Frame " << i << ": [" << (m_frameTable.isFrameFree(i) ? "FREE" : "USED") << "]  ";
+        if ((i + 1) % 5 == 0) ss << "\n";
     }
     ss << "\n";
 
