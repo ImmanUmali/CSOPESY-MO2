@@ -32,12 +32,13 @@ private:
     std::vector<std::shared_ptr<Process>> m_waitingProcesses;
 
     IMemoryAllocator* m_allocator;
-    size_t m_memPerProc;
+    size_t m_minMemPerProc;
+    size_t m_maxMemPerProc;
 
     void threadLoop();                       // Background execution loop
 
 public:
-    Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t memPerProc);
+    Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t minMemPerProc, size_t maxMemPerProc);
     ~Scheduler();
 
     void start();                            // Spins up the background thread

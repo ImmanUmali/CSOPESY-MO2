@@ -19,6 +19,13 @@ private:
     std::vector<std::string> m_logs;
     std::string m_timestamp;
     std::unordered_map<std::string, int> m_symbolTable;
+
+    std::unordered_map<unsigned long, uint16_t> m_simulatedMemory;
+    size_t m_memRequired;
+    bool m_hasCrashed = false;
+    std::string m_crashTimestamp;
+    std::string m_invalidAddress;
+
     unsigned int m_remainingSleepTicks = 0;
     void evaluateInstruction(const Instruction& ins, int coreId);
     void* m_memoryPtr;
@@ -37,7 +44,7 @@ public:
 
     void addLog(const std::string& message);
     void executeNextLine(int coreId);
-    bool isFinished() const { return m_commandCounter >= m_linesOfCode; }
+    bool isFinished() const { return m_commandCounter >= m_linesOfCode || m_hasCrashed; }
     void setState(ProcessState state);
 
     void decrementSleep() { if (m_remainingSleepTicks > 0) m_remainingSleepTicks--; }
@@ -46,4 +53,13 @@ public:
 
     void* getMemoryPtr() const { return m_memoryPtr; }
     void reclaimMemory();
+
+    bool hasCrashed() const { return m_hasCrashed; }
+    std::string getCrashTimestamp() const { return m_crashTimestamp; }
+    std::string getInvalidAddress() const { return m_invalidAddress; }
+
+    void setCustomInstructions(const std::vector<Instruction>& instrs) {
+        m_instructions = instrs;
+        m_linesOfCode = instrs.size();
+    }
 };

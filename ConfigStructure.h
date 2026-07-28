@@ -13,5 +13,6 @@ struct SystemConfig {
     uint32_t delayPerExec = 0;
     uint32_t maxOverallMem = 1;
     uint32_t memPerFrame = 1;
-    uint32_t memPerProc = 0;
+    uint32_t minMemPerProc = 1;
+    uint32_t maxMemPerProc = 1;
 };

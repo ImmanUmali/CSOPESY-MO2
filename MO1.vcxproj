@@ -165,7 +165,6 @@
     <ClInclude Include="IMemoryAllocator.h" />
     <ClInclude Include="Instruction.h" />
     <ClInclude Include="ISystemContext.h" />
-    <ClInclude Include="MemoryBlock.h" />
     <ClInclude Include="MemoryManager.h" />
     <ClInclude Include="MultiplexerCommands.h" />
     <ClInclude Include="PagedMemoryManager.h" />

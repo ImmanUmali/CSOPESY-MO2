@@ -70,6 +70,43 @@ inline void GenerateReportStream(std::ostream& out, ConsoleShell& shell) {
     out << "---------------------------------------------------------\n";
 }
 
+inline std::vector<Instruction> ParseCustomInstructions(const std::string& instString) {
+    std::vector<Instruction> instrs;
+    std::stringstream ss(instString);
+    std::string token;
+
+    while (std::getline(ss, token, ';')) {
+        // Trim leading/trailing whitespace
+        token.erase(0, token.find_first_not_of(" \t"));
+        token.erase(token.find_last_not_of(" \t") + 1);
+        if (token.empty()) continue;
+
+        std::stringstream cmdSS(token);
+        std::string opStr;
+        cmdSS >> opStr;
+
+        Instruction ins;
+        if (opStr == "DECLARE") ins.op = OpCode::DECLARE;
+        else if (opStr == "ADD") ins.op = OpCode::ADD;
+        else if (opStr == "SUBTRACT") ins.op = OpCode::SUBTRACT;
+        else if (opStr == "PRINT") ins.op = OpCode::PRINT;
+        else if (opStr == "READ") ins.op = OpCode::READ;
+        else if (opStr == "WRITE") ins.op = OpCode::WRITE;
+        else if (opStr == "SLEEP") ins.op = OpCode::SLEEP;
+        else continue;
+
+        std::string arg;
+        while (cmdSS >> arg) {
+            // Strip quotes from args if they exist (for PRINT statements)
+            if (arg.front() == '"') arg.erase(0, 1);
+            if (arg.back() == '"') arg.pop_back();
+            ins.args.push_back(arg);
+        }
+        instrs.push_back(ins);
+    }
+    return instrs;
+}
+
 class ScreenCommand : public ICommand {
 public:
     std::string getName() const override { return "screen"; }
@@ -105,7 +142,28 @@ public:
         std::string processName = args[1];
 
        // If input is screen -s
+        // If input is screen -s
         if (flag == "-s") {
+            if (args.size() < 3) {
+                std::cout << "Usage: screen -s <process_name> <process_memory_size>\n" << std::endl;
+                return;
+            }
+
+            long long requestedMemory;
+            try {
+                requestedMemory = std::stoll(args[2]);
+            }
+            catch (const std::exception&) {
+                std::cout << "invalid memory allocation\n" << std::endl;
+                return;
+            }
+
+            // Must be between 64 and 65536 and a power of 2
+            if (requestedMemory < 64 || requestedMemory > 65536 || (requestedMemory & (requestedMemory - 1)) != 0) {
+                std::cout << "invalid memory allocation\n" << std::endl;
+                return;
+            }
+
             if (shell.findProcess(processName) != nullptr) {
                 std::cout << "Error: Process with name '" << processName << "' already exists.\n" << std::endl;
                 return;
@@ -113,23 +171,22 @@ public:
 
             SystemConfig cfg = shell.getConfig();
             int newPid = shell.generateNextPid();
-            
+
             auto newProc = std::make_shared<Process>(
                 newPid,
                 processName,
                 cfg.minIns,
                 cfg.maxIns,
                 shell.getMemoryManager(),
-                cfg.memPerProc
+                static_cast<uint32_t>(requestedMemory) // Uses the validated user input
             );
 
-            shell.addProcess(newProc); 
-            
+            shell.addProcess(newProc);
+
             shell.setAttachedProcess(processName);
             shell.changeView(TerminalView::SCREEN_MULTIPLEXER);
 
             ClearTerminal();
-
 
             auto sched = shell.getScheduler();
             if (sched) {
@@ -139,18 +196,75 @@ public:
             std::cout << "Attached to new process screen: " << processName << std::endl;
         }
         
+        else if (flag == "-c") {
+            if (args.size() < 4) {
+                std::cout << "Usage: screen -c <process_name> <process_memory_size> \"<instructions>\"\n" << std::endl;
+                return;
+            }
+
+            long long requestedMemory;
+            try { requestedMemory = std::stoll(args[2]); }
+            catch (...) { std::cout << "invalid memory allocation\n" << std::endl; return; }
+
+            if (requestedMemory < 64 || requestedMemory > 65536 || (requestedMemory & (requestedMemory - 1)) != 0) {
+                std::cout << "invalid memory allocation\n" << std::endl;
+                return;
+            }
+
+            if (shell.findProcess(processName) != nullptr) {
+                std::cout << "Error: Process with name '" << processName << "' already exists.\n" << std::endl;
+                return;
+            }
+
+            // Reconstruct the instruction string in case it was split by spaces
+            std::string fullInstStr = "";
+            for (size_t i = 3; i < args.size(); ++i) {
+                fullInstStr += args[i] + (i == args.size() - 1 ? "" : " ");
+            }
+            // Strip encapsulating quotes
+            if (!fullInstStr.empty() && fullInstStr.front() == '"') fullInstStr.erase(0, 1);
+            if (!fullInstStr.empty() && fullInstStr.back() == '"') fullInstStr.pop_back();
+
+            std::vector<Instruction> customInstrs = ParseCustomInstructions(fullInstStr);
+            if (customInstrs.empty() || customInstrs.size() > 50) {
+                std::cout << "invalid command\n" << std::endl;
+                return;
+            }
+
+            SystemConfig cfg = shell.getConfig();
+            int newPid = shell.generateNextPid();
+            auto newProc = std::make_shared<Process>(newPid, processName, cfg.minIns, cfg.maxIns, shell.getMemoryManager(), static_cast<uint32_t>(requestedMemory));
+
+            newProc->setCustomInstructions(customInstrs);
+
+            shell.addProcess(newProc);
+            shell.setAttachedProcess(processName);
+            shell.changeView(TerminalView::SCREEN_MULTIPLEXER);
+            ClearTerminal();
+
+            auto sched = shell.getScheduler();
+            if (sched) sched->addProcess(newProc);
+
+            std::cout << "Attached to new process screen (custom instructions): " << processName << std::endl;
+        }
+
         // If input is screen -r
         else if (flag == "-r") {
             Process* existingProc = shell.findProcess(processName);
-            
+
             if (existingProc == nullptr) {
                 std::cout << "Error: Process '" << processName << "' not found.\n" << std::endl;
                 return;
             }
 
+            if (existingProc->hasCrashed()) {
+                std::cout << "Process " << processName << " shut down due to memory access violation error that occurred at "
+                    << existingProc->getCrashTimestamp() << ". " << existingProc->getInvalidAddress() << " invalid.\n" << std::endl;
+                return;
+            }
+
             shell.setAttachedProcess(processName);
             shell.changeView(TerminalView::SCREEN_MULTIPLEXER);
-
             ClearTerminal();
 
             std::cout << "Re-attached to process screen: " << processName << std::endl;

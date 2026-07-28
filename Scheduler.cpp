@@ -1,15 +1,18 @@
 #include "Scheduler.h"
 #include "Process.h"
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 
-Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t memPerProc)
+Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t minMemPerProc, size_t maxMemPerProc)
     : m_schedulerType(type),
     m_rrScheduler(quantum),
     m_delayPerExec(delayPerExec),
     m_cpuCycles(0),
     m_running(false),
-    m_allocator(allocator),   
-    m_memPerProc(memPerProc)  
+    m_allocator(allocator),
+    m_minMemPerProc(minMemPerProc),
+    m_maxMemPerProc(maxMemPerProc)
 {
     for (int i = 0; i < numCpu; ++i) {
         m_cpuCores.emplace_back(i);
@@ -60,7 +63,21 @@ void Scheduler::threadLoop() {
                 int pid = ++m_generatedPidCounter;
                 std::string processName = "p" + std::to_string(pid);
 
-                auto batchProc = std::make_shared<Process>(pid, processName, m_minIns, m_maxIns, m_allocator, m_memPerProc);
+                int minPower = static_cast<int>(std::log2(m_minMemPerProc));
+                int maxPower = static_cast<int>(std::log2(m_maxMemPerProc));
+
+                // Roll a random power between min and max
+                int randomPower = minPower + (std::rand() % (maxPower - minPower + 1));
+                size_t randomMemSize = 1 << randomPower; // Shift bit to get the actual byte size
+
+                auto batchProc = std::make_shared<Process>(
+                    pid,
+                    processName,
+                    m_minIns,
+                    m_maxIns,
+                    m_allocator,
+                    randomMemSize
+                );
 
                 // Keep the state explicit
                 batchProc->setState(ProcessState::READY);

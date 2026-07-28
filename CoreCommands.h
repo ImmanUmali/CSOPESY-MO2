@@ -54,9 +54,9 @@ public:
         std::cout << " Execution Delay     : " << parsedConfig.delayPerExec << "\n";
         std::cout << " Max Overall Memory  : " << parsedConfig.maxOverallMem << " bytes\n";
         std::cout << " Memory Per Frame    : " << parsedConfig.memPerFrame << " bytes\n";
-        std::cout << " Fixed Memory / Proc : " << parsedConfig.memPerProc << " bytes\n";
+        std::cout << " Memory Per Proc     : [" << parsedConfig.minMemPerProc << ", " << parsedConfig.maxMemPerProc << "] bytes\n";
         std::cout << "-------------------------------------------\n";
-        std::cout << "First-Fit Memory Partitioning initialized.\n" << std::endl;
+        std::cout << "Paged Memory Partitioning initialized.\n" << std::endl;
 
         auto scheduler = std::make_shared<Scheduler>(
             parsedConfig.scheduler,
@@ -64,7 +64,8 @@ public:
             parsedConfig.quantumCycles,
             parsedConfig.delayPerExec,
             allocatorPtr,
-            parsedConfig.memPerProc
+            parsedConfig.minMemPerProc,
+            parsedConfig.maxMemPerProc
         );
 
         context.setScheduler(scheduler);
