@@ -68,7 +68,7 @@ void Scheduler::threadLoop() {
 
                 // Roll a random power between min and max
                 int randomPower = minPower + (std::rand() % (maxPower - minPower + 1));
-                size_t randomMemSize = 1 << randomPower; // Shift bit to get the actual byte size
+                size_t randomMemSize = static_cast<size_t>(1) << randomPower; // Shift bit to get the actual byte size
 
                 auto batchProc = std::make_shared<Process>(
                     pid,
