@@ -4,7 +4,7 @@
 
 BackingStore::BackingStore() : m_numPagedIn(0), m_numPagedOut(0) {
     // Ensure file exists at startup
-    std::ofstream file("csopesy-backing-store.txt", std::ios::app);
+    std::ofstream file("csopesy-backing-store.txt", std::ios::trunc);
 }
 
 void BackingStore::writePageToFile(const std::string& pageKey, const std::string& data) {

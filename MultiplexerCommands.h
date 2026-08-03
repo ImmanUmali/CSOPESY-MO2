@@ -281,37 +281,66 @@ public:
     bool isBypassingInitialization() const override { return false; }
 
     void execute(ISystemContext& context, const std::vector<std::string>& args) override {
-        if (context.getCurrentView() != TerminalView::SCREEN_MULTIPLEXER) {
-            std::cout << "Error: 'process-smi' can only be executed inside an attached process screen.\n" << std::endl;
-            return;
-        }
-
         ConsoleShell& shell = static_cast<ConsoleShell&>(context);
-        Process* proc = shell.findProcess(shell.getAttachedProcess());
+        auto sched = shell.getScheduler();
+        auto memMgr = dynamic_cast<PagedMemoryManager*>(shell.getMemoryManager());
 
-        if (!proc) {
-            std::cout << "Error: Attached process references a null context state.\n" << std::endl;
+        if (!sched || !memMgr) {
+            std::cout << "Error: System resources uninitialized.\n\n";
             return;
         }
 
-        std::cout << "Process name: " << proc->getName() << "\n";
-        std::cout << "ID: " << proc->getPid() << "\n";
-
-        std::cout << "Logs:\n";
-        for (const auto& log : proc->getLogs()) {
-            std::cout << log << "\n";
+        auto cores = sched->getCores();
+        size_t totalCores = cores.size();
+        size_t coresUsed = 0;
+        for (const auto& core : cores) {
+            if (!core.isIdle()) coresUsed++;
         }
 
-        std::cout << '\n';
-        std::cout << "Current Line: " << proc->getCommandCounter() << "\n";
-        std::cout << "Total Lines: " << proc->getLinesOfCode() << "\n";
+        int cpuUtil = (totalCores > 0) ? static_cast<int>(((double)coresUsed / totalCores) * 100.0) : 0;
 
+        size_t totalMemBytes = memMgr->getMaxMemory();
+        size_t usedMemBytes = memMgr->getUsedMemory();
 
-        std::cout << "\n";
+        // Convert Bytes to MiB format for visual consistency
+        size_t totalMemMiB = totalMemBytes / (1024 * 1024);
+        size_t usedMemMiB = usedMemBytes / (1024 * 1024);
 
-        if (proc->isFinished()) {
-            std::cout << "Finished!\n\n";
+        if (totalMemMiB == 0) totalMemMiB = totalMemBytes; 
+        if (usedMemMiB == 0 && usedMemBytes > 0) usedMemMiB = 1;
+
+        int memUtil = (totalMemBytes > 0) ? static_cast<int>(((double)usedMemBytes / totalMemBytes) * 100.0) : 0;
+
+        std::cout << "------------------------------------------------------------------\n";
+        std::cout << "  PROCESS-SMI V01.00 Driver Version: 01.00                        \n";
+        std::cout << "------------------------------------------------------------------\n";
+        std::cout << "CPU-Util: " << cpuUtil << "%\n";
+        std::cout << "Memory Usage: " << usedMemMiB << " MiB / " << totalMemMiB << " MiB\n";
+        std::cout << "Memory Util: " << memUtil << "%\n";
+        std::cout << "------------------------------------------------------------------\n";
+        std::cout << "Running processes and memory usage:\n";
+        std::cout << "------------------------------------------------------------------\n";
+
+        auto trackedProcesses = sched->getAllTrackedProcesses();
+        bool activeFound = false;
+
+        for (const auto& proc : trackedProcesses) {
+            if (proc && !proc->isFinished()) {
+                activeFound = true;
+                size_t procMem = proc->getMemorySize();
+                size_t procMemMiB = procMem / (1024 * 1024);
+                if (procMemMiB == 0) procMemMiB = procMem; 
+
+                std::cout << std::left << std::setw(16) << proc->getName() 
+                          << procMemMiB << "MiB\n";
+            }
         }
+
+        if (!activeFound) {
+            std::cout << "No processes currently executing.\n";
+        }
+
+        std::cout << "------------------------------------------------------------------\n\n";
     }
 };
 

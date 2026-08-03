@@ -74,7 +74,6 @@ public:
     }
 };
 
-
 class VmStatCommand : public ICommand {
 public:
     std::string getName() const override { return "vmstat"; }
@@ -82,11 +81,37 @@ public:
 
     void execute(ISystemContext& context, const std::vector<std::string>& args) override {
         ConsoleShell& shell = static_cast<ConsoleShell&>(context);
-        if (shell.getMemoryManager()) {
-            std::cout << shell.getMemoryManager()->visualizeMemory() << "\n";
+        auto memMgr = dynamic_cast<PagedMemoryManager*>(shell.getMemoryManager());
+        auto sched = shell.getScheduler();
+
+        if (!memMgr || !sched) {
+            std::cout << "Error: Memory Manager or Scheduler not fully initialized.\n\n";
+            return;
         }
-        else {
-            std::cout << "Error: Memory Manager not initialized.\n";
+
+        size_t totalMem = memMgr->getMaxMemory();
+        size_t usedMem = memMgr->getUsedMemory();
+        size_t freeMem = memMgr->getFreeMemory();
+
+        // Calculate CPU core ticks across all cores
+        uint64_t totalTicks = sched->getCpuCycles();
+        size_t cores = sched->getCores().size();
+
+        size_t activeCores = 0;
+        for (const auto& core : sched->getCores()) {
+            if (!core.isIdle()) activeCores++;
         }
+
+        uint64_t activeTicks = totalTicks * activeCores;
+        uint64_t idleTicks = (totalTicks * cores) - activeTicks;
+
+        std::cout << totalMem << " K total memory\n";
+        std::cout << usedMem << " K used memory\n";
+        std::cout << freeMem << " K free memory\n";
+        std::cout << idleTicks << " idle cpu ticks\n";
+        std::cout << activeTicks << " active cpu ticks\n";
+        std::cout << (totalTicks * cores) << " total cpu ticks\n";
+        std::cout << memMgr->getPagedInCount() << " pages paged in\n";
+        std::cout << memMgr->getPagedOutCount() << " pages paged out\n\n";
     }
 };

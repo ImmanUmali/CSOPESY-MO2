@@ -62,4 +62,6 @@ public:
         m_instructions = instrs;
         m_linesOfCode = instrs.size();
     }
+
+    size_t getMemorySize() const { return m_memRequired; }
 };

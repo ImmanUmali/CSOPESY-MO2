@@ -23,6 +23,9 @@ private:
     BackingStore m_backingStore;
     std::list<size_t> m_fifoQueue;
 
+    uint64_t m_pagedInCount{0};
+    uint64_t m_pagedOutCount{0};
+
 public:
     PagedMemoryManager(size_t maxMem, size_t frameSize);
     ~PagedMemoryManager() = default;
@@ -32,4 +35,13 @@ public:
     void deallocate(void* ptr) override;
     std::string visualizeMemory() override;
     bool performMemoryAccess(void* ptr);
+
+    size_t getMaxMemory() const { return maximumSize; }
+    size_t getUsedMemory() const { 
+        size_t occupiedFrames = m_frameTable.getTotalFrames() - m_frameTable.getFreeFrameCount();
+        return occupiedFrames * m_frameSize;
+    }
+    size_t getFreeMemory() const { return m_frameTable.getFreeFrameCount() * m_frameSize; }
+    uint64_t getPagedInCount() const { return m_pagedInCount; }
+    uint64_t getPagedOutCount() const { return m_pagedOutCount; }
 };

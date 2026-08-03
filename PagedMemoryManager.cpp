@@ -106,6 +106,8 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
 
                 std::string victimKey = std::to_string(reinterpret_cast<uintptr_t>(victimAddress)) + "_" + std::to_string(victimLogicalPage);
                 m_backingStore.writePageToFile(victimKey, "[PAGE_DATA_DUMP]");
+
+                m_pagedOutCount++;
             }
 
             // Page in faulting page from store
@@ -116,6 +118,8 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
             m_frameTable.setFrameOwner(physicalFrame, ptr, logicalPage);
             pageTable.mapPage(logicalPage, physicalFrame);
             m_fifoQueue.push_back(physicalFrame);
+
+            m_pagedInCount++;
 
             return true; // Page fault occurred and was resolved
         }
