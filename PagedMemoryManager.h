@@ -7,10 +7,12 @@
 #include <unordered_map>
 #include <string>
 #include <cstdint>
+#include <mutex>
 
 class PagedMemoryManager : public IMemoryAllocator {
 private:
     size_t m_frameSize;
+    std::mutex m_memoryMutex;
 
     // The global physical memory manager
     FrameTable m_frameTable;

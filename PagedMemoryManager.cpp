@@ -81,15 +81,22 @@ std::string PagedMemoryManager::visualizeMemory() {
 bool PagedMemoryManager::performMemoryAccess(void* ptr) {
     if (!ptr) return false;
 
+    // Lock memory operations across multi-threaded CPU cores
+    std::lock_guard<std::mutex> lock(m_memoryMutex);
+
     auto it = m_pageDirectory.find(ptr);
     if (it == m_pageDirectory.end()) return false;
 
     PageTable& pageTable = it->second;
+    bool pageFaultOccurred = false;
 
-    for (size_t logicalPage = 0; logicalPage < pageTable.getNumPages(); ++logicalPage) {
+    size_t numPages = pageTable.getNumPages();
+    for (size_t logicalPage = 0; logicalPage < numPages; ++logicalPage) {
         PageTableEntry pte = pageTable.getEntry(logicalPage);
 
         if (!pte.isValid) {
+            pageFaultOccurred = true;
+
             size_t physicalFrame = m_frameTable.allocateFreeFrame();
 
             // FIFO Page Replacement when RAM is full
@@ -101,8 +108,10 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
                 size_t victimLogicalPage = 0;
                 m_frameTable.getFrameOwner(physicalFrame, victimAddress, victimLogicalPage);
 
-                // Evict victim page and persist data to store
-                m_pageDirectory[victimAddress].unmapPage(victimLogicalPage);
+                auto victimIt = m_pageDirectory.find(victimAddress);
+                if (victimIt != m_pageDirectory.end()) {
+                    victimIt->second.unmapPage(victimLogicalPage);
+                }
 
                 std::string victimKey = std::to_string(reinterpret_cast<uintptr_t>(victimAddress)) + "_" + std::to_string(victimLogicalPage);
                 m_backingStore.writePageToFile(victimKey, "[PAGE_DATA_DUMP]");
@@ -110,7 +119,6 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
                 m_pagedOutCount++;
             }
 
-            // Page in faulting page from store
             std::string pageKey = std::to_string(reinterpret_cast<uintptr_t>(ptr)) + "_" + std::to_string(logicalPage);
             std::string loadedData;
             m_backingStore.readPageFromFile(pageKey, loadedData);
@@ -120,10 +128,8 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
             m_fifoQueue.push_back(physicalFrame);
 
             m_pagedInCount++;
-
-            return true; // Page fault occurred and was resolved
         }
     }
 
-    return false; // All required pages are already in RAM
+    return pageFaultOccurred;
 }

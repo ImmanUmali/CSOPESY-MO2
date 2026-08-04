@@ -26,17 +26,12 @@ void CPUCore::executeCycle(IMemoryAllocator* globalAllocator) {
 
     if (pagedManager && procMem) {
         bool pageFault = pagedManager->performMemoryAccess(procMem);
-
-        if (pageFault) {
-            // Memory was on disk. The MMU just handled it and swapped it into RAM.
-            // This cycle was consumed handling the page fault, so we skip execution.
-            return;
-        }
     }
 
-    // If no page fault (or using flat memory), execute the next line normally
+    // If no page fault occurred (all process pages resident), execute next instruction
     m_currentProcess->executeNextLine(m_id);
 }
+
 
 std::shared_ptr<Process> CPUCore::getCurrentProcess() const {
     return m_currentProcess;
