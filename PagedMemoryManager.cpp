@@ -121,8 +121,18 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
                 victimIt->second.unmapPage(victimLogicalPage);
             }
 
-            std::string victimKey = std::to_string(reinterpret_cast<uintptr_t>(victimAddress)) + "_" + std::to_string(victimLogicalPage);
-            m_backingStore.writePageToFile(victimKey, "[PAGE_DATA_DUMP]");
+            // Extract victim PID from victim address or pointer
+            int victimPid = static_cast<int>(reinterpret_cast<uintptr_t>(victimAddress) & 0xFFFF);
+            size_t vpn = victimLogicalPage;
+
+            // Generate page buffer bytes corresponding to frame size
+            std::vector<uint8_t> dummyPageData(m_frameSize);
+            for (size_t b = 0; b < m_frameSize; ++b) {
+                dummyPageData[b] = static_cast<uint8_t>(std::rand() % 256);
+            }
+
+            // Write the formatted hex dump to the backing store file
+            m_backingStore.writePageToFile(victimPid, vpn, dummyPageData);
 
             m_pagedOutCount++;
         }

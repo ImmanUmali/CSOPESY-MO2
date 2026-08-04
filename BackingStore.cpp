@@ -1,16 +1,28 @@
 // BackingStore.cpp
 #include "BackingStore.h"
 #include <fstream>
+#include <sstream>
+#include <iomanip>
 
 BackingStore::BackingStore() : m_numPagedIn(0), m_numPagedOut(0) {
-    // Ensure file exists at startup
     std::ofstream file("csopesy-backing-store.txt", std::ios::trunc);
+    if (file.is_open()) {
+        file << "# <Process Base Address> <VPN (Virtual Page Number)> : <Page Bytes Hex Dump>\n";
+        file.close();
+    }
 }
 
-void BackingStore::writePageToFile(const std::string& pageKey, const std::string& data) {
+void BackingStore::writePageToFile(int pid, size_t vpn, const std::vector<uint8_t>& pageData) {
     std::ofstream file("csopesy-backing-store.txt", std::ios::app);
     if (file.is_open()) {
-        file << pageKey << ":" << data << "\n";
+        file << "# " << pid << " " << vpn << " : ";
+        for (size_t i = 0; i < pageData.size(); ++i) {
+            file << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << (int)pageData[i];
+            if (i + 1 < pageData.size()) {
+                file << " ";
+            }
+        }
+        file << "\n";
         m_numPagedOut++;
     }
 }

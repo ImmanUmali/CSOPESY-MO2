@@ -4,6 +4,8 @@
 #include <fstream>
 #include <unordered_map>
 #include <cstddef>
+#include <vector>
+#include <cstdint>
 
 class BackingStore {
 private:
@@ -16,7 +18,8 @@ public:
     BackingStore();
     ~BackingStore() = default;
 
-    void writePageToFile(const std::string& pageKey, const std::string& data);
+    // Updated writePageToFile to handle formatted byte hex dumps
+    void writePageToFile(int pid, size_t vpn, const std::vector<uint8_t>& pageData);
     bool readPageFromFile(const std::string& pageKey, std::string& outData);
 
     void pageOut();
