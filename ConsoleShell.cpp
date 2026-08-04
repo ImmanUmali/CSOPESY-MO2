@@ -28,7 +28,7 @@ void ConsoleShell::printMainMenu() const {
                                                                         
     std::cout << "Welcome to CSOPESY Emulator!\n";
     std::cout << "Developers:\n     Lazaro, Heisel Janine C. \n     Tria, Chynna Mae Z. \n     Umali, Immanuel Z. \n";
-    std::cout << "Last updated: 06-27-2026\n";
+    std::cout << "Last updated: 08-04-2026\n";
     std::cout << "___________________________________________\n\n";
 }
 
@@ -46,6 +46,7 @@ void ConsoleShell::setupCommands() {
     registerCommand(std::make_unique<SchedulerStartCommand>());
     registerCommand(std::make_unique<SchedulerStopCommand>());
     registerCommand(std::make_unique<ReportUtilCommand>());
+    registerCommand(std::make_unique<VmStatCommand>());
 }
 
 Process* ConsoleShell::findProcess(const std::string& name) {

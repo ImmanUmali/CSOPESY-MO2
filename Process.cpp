@@ -62,8 +62,15 @@ Instruction generateRandomInstruction(int currentDepth) {
     return ins;
 }
 
-Process::Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns)
-    : m_pid(pid), m_name(name), m_state(ProcessState::READY), m_commandCounter(0) {
+Process::Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns, IMemoryAllocator* allocator, size_t memRequired)
+    : m_pid(pid), m_name(name), m_state(ProcessState::READY), m_commandCounter(0), m_allocator(allocator), m_memRequired(memRequired) {
+
+    if (m_allocator) {
+        m_memoryPtr = m_allocator->allocate(memRequired);
+    }
+    else {
+        m_memoryPtr = nullptr;
+    }
 
     m_timestamp = getCurrentTimestampString();
 
@@ -95,32 +102,131 @@ void Process::addLog(const std::string& message) {
 void Process::evaluateInstruction(const Instruction& ins, int coreId) {
     switch (ins.op) {
     case OpCode::PRINT: {
-        // Only print operations generate visible screen history rows
-        std::stringstream formattedLog;
-        formattedLog << "(" << getCurrentTimestampString() << ") Core:" << coreId << " "
-            << "\"Hello world from " << m_name << "!\"";
-        addLog(formattedLog.str());
+        std::string printOutput = "";
+
+        if (ins.args.empty()) {
+            printOutput = "Hello world from " + m_name + "!";
+        } else {
+            for (size_t i = 0; i < ins.args.size(); ++i) {
+                std::string arg = ins.args[i];
+                
+                // Skip '+' concatenation operators
+                if (arg == "+") continue;
+
+                // Strip any remaining backslashes or quotation marks
+                arg.erase(std::remove(arg.begin(), arg.end(), '\\'), arg.end());
+                arg.erase(std::remove(arg.begin(), arg.end(), '\"'), arg.end());
+
+                if (arg.empty()) continue;
+
+                // Check if argument is in symbol table
+                if (m_symbolTable.find(arg) != m_symbolTable.end()) {
+                    // If there's already text in the buffer and it doesn't end with a space, add one!
+                    if (!printOutput.empty() && printOutput.back() != ' ') {
+                        printOutput += " ";
+                    }
+                    printOutput += std::to_string(m_symbolTable[arg]);
+                } else {
+                    printOutput += arg;
+                }
+            }
+        }
+
+        addLog(printOutput);
         break;
     }
     case OpCode::DECLARE: {
-        // Silently processes backend state tracking without logging
         std::string varName = ins.args.empty() ? "var" : ins.args[0];
+
+        // Enforce 32 variable limit (64-byte symbol table / 2 bytes per uint16)
+        if (m_symbolTable.size() >= 32 && m_symbolTable.find(varName) == m_symbolTable.end()) {
+            break; // Limit reached, ignore succeeding declarations
+        }
+
         int initialVal = ins.args.size() < 2 ? 0 : std::stoi(ins.args[1]);
         m_symbolTable[varName] = initialVal;
         break;
     }
+    case OpCode::READ: {
+        if (ins.args.size() < 2) break;
+        std::string varName = ins.args[0];
+        std::string hexAddrStr = ins.args[1];
+        unsigned long addr = std::stoul(hexAddrStr, nullptr, 16);
+
+        if (addr >= m_memRequired) {
+            m_hasCrashed = true;
+            m_crashTimestamp = getCurrentTimestampString();
+            m_invalidAddress = hexAddrStr;
+            m_state = ProcessState::FINISHED;
+            return;
+        }
+        m_symbolTable[varName] = m_simulatedMemory[addr];
+        break;
+    }
+    case OpCode::WRITE: {
+        if (ins.args.size() < 2) break;
+        std::string hexAddrStr = ins.args[0];
+        unsigned long addr = std::stoul(hexAddrStr, nullptr, 16);
+
+        std::string valStr = ins.args[1];
+        uint16_t valToWrite = 0;
+
+        if (isdigit(valStr[0])) {
+            valToWrite = static_cast<uint16_t>(std::stoi(valStr));
+        }
+        else {
+            valToWrite = m_symbolTable[valStr];
+        }
+
+        if (addr >= m_memRequired) {
+            m_hasCrashed = true;
+            m_crashTimestamp = getCurrentTimestampString();
+            m_invalidAddress = hexAddrStr;
+            m_state = ProcessState::FINISHED;
+            return;
+        }
+        m_simulatedMemory[addr] = valToWrite;
+        break;
+    }
     case OpCode::ADD: {
-        // Silently processes backend state tracking without logging
-        std::string varName = ins.args.empty() ? "var" : ins.args[0];
-        int val = ins.args.size() < 2 ? 1 : std::stoi(ins.args[1]);
-        m_symbolTable[varName] += val;
+        // Handles MCO2 custom string syntax: ADD dest op1 op2 (e.g., ADD varA varA varB)
+        if (ins.args.size() >= 3) {
+            std::string dest = ins.args[0];
+
+            // Check if argument is a number or a variable name
+            int val1 = (isdigit(ins.args[1][0]) || ins.args[1][0] == '-') ? std::stoi(ins.args[1]) : m_symbolTable[ins.args[1]];
+            int val2 = (isdigit(ins.args[2][0]) || ins.args[2][0] == '-') ? std::stoi(ins.args[2]) : m_symbolTable[ins.args[2]];
+
+            m_symbolTable[dest] = val1 + val2;
+        }
+        // Handles original MO1 batch syntax: ADD var val (e.g., ADD x 1)
+        else {
+            std::string varName = ins.args.empty() ? "var" : ins.args[0];
+            int val = 1;
+            if (ins.args.size() >= 2) {
+                val = (isdigit(ins.args[1][0]) || ins.args[1][0] == '-') ? std::stoi(ins.args[1]) : m_symbolTable[ins.args[1]];
+            }
+            m_symbolTable[varName] += val;
+        }
         break;
     }
     case OpCode::SUBTRACT: {
-        // Silently processes backend state tracking without logging
-        std::string varName = ins.args.empty() ? "var" : ins.args[0];
-        int val = ins.args.size() < 2 ? 1 : std::stoi(ins.args[1]);
-        m_symbolTable[varName] -= val;
+        // Handles MCO2 custom string syntax: SUBTRACT dest op1 op2
+        if (ins.args.size() >= 3) {
+            std::string dest = ins.args[0];
+            int val1 = (isdigit(ins.args[1][0]) || ins.args[1][0] == '-') ? std::stoi(ins.args[1]) : m_symbolTable[ins.args[1]];
+            int val2 = (isdigit(ins.args[2][0]) || ins.args[2][0] == '-') ? std::stoi(ins.args[2]) : m_symbolTable[ins.args[2]];
+            m_symbolTable[dest] = val1 - val2;
+        }
+        // Handles original MO1 batch syntax: SUBTRACT var val
+        else {
+            std::string varName = ins.args.empty() ? "var" : ins.args[0];
+            int val = 1;
+            if (ins.args.size() >= 2) {
+                val = (isdigit(ins.args[1][0]) || ins.args[1][0] == '-') ? std::stoi(ins.args[1]) : m_symbolTable[ins.args[1]];
+            }
+            m_symbolTable[varName] -= val;
+        }
         break;
     }
     case OpCode::SLEEP: {
@@ -146,7 +252,7 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
 }
 
 void Process::executeNextLine(int coreId) {
-    if (isFinished()) return;
+    if (isFinished() || m_hasCrashed) return;
 
     m_state = ProcessState::RUNNING;
 
@@ -154,5 +260,19 @@ void Process::executeNextLine(int coreId) {
     const Instruction& activeIns = m_instructions[m_commandCounter];
     evaluateInstruction(activeIns, coreId);
 
-    m_commandCounter++;
+    if (!m_hasCrashed) {
+        m_commandCounter++;
+    }
+}
+
+void Process::reclaimMemory() {
+    if (m_allocator && m_memoryPtr) {
+        m_allocator->deallocate(m_memoryPtr);
+        m_memoryPtr = nullptr; // Ensure we don't double-free
+    }
+}
+
+Process::~Process() {
+    // Fallback in case the process is destroyed before finishing naturally
+    reclaimMemory();
 }

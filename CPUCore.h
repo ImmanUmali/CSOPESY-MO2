@@ -1,5 +1,5 @@
 #pragma once
-
+#include "IMemoryAllocator.h"
 #include <memory>
 
 class Process;
@@ -17,7 +17,7 @@ public:
 
     void assignProcess(std::shared_ptr<Process> process);
 
-    void executeCycle();
+    void executeCycle(IMemoryAllocator* globalAllocator);
 
     std::shared_ptr<Process> getCurrentProcess() const;
 

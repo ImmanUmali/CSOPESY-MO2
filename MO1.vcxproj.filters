@@ -42,6 +42,15 @@
     <ClCompile Include="MemoryManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PagedMemoryManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FrameTable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BackingStore.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ICommand.h">
@@ -83,10 +92,22 @@
     <ClInclude Include="ISystemContext.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="MemoryBlock.h">
+    <ClInclude Include="MemoryManager.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="MemoryManager.h">
+    <ClInclude Include="IMemoryAllocator.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PagedMemoryManager.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FrameTable.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PageTable.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BackingStore.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

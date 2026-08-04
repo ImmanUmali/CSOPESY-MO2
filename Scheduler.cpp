@@ -1,13 +1,18 @@
 #include "Scheduler.h"
 #include "Process.h"
 #include <chrono>
+#include <cmath>
+#include <cstdlib>
 
-Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec)
+Scheduler::Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t minMemPerProc, size_t maxMemPerProc)
     : m_schedulerType(type),
     m_rrScheduler(quantum),
     m_delayPerExec(delayPerExec),
     m_cpuCycles(0),
-    m_running(false)
+    m_running(false),
+    m_allocator(allocator),
+    m_minMemPerProc(minMemPerProc),
+    m_maxMemPerProc(maxMemPerProc)
 {
     for (int i = 0; i < numCpu; ++i) {
         m_cpuCores.emplace_back(i);
@@ -37,14 +42,20 @@ void Scheduler::stop() {
 void Scheduler::addProcess(std::shared_ptr<Process> process) {
     std::lock_guard<std::mutex> lock(m_schedulerMutex);
 
-    // Track globally for reporting metrics
     m_allTrackedProcesses.push_back(process);
 
-    if (m_schedulerType == "fcfs") {
-        m_fcfsScheduler.addProcess(process);
-    }
-    else if (m_schedulerType == "rr") {
-        m_rrScheduler.addProcess(process);
+    // If no memory was allocated, send to Waiting Queue instead of Ready Queue
+    if (process->getMemoryPtr() == nullptr) {
+        process->setState(ProcessState::WAITING);
+        m_waitingProcesses.push_back(process);
+    } 
+    else {
+        if (m_schedulerType == "fcfs") {
+            m_fcfsScheduler.addProcess(process);
+        }
+        else if (m_schedulerType == "rr") {
+            m_rrScheduler.addProcess(process);
+        }
     }
 }
 
@@ -58,7 +69,21 @@ void Scheduler::threadLoop() {
                 int pid = ++m_generatedPidCounter;
                 std::string processName = "p" + std::to_string(pid);
 
-                auto batchProc = std::make_shared<Process>(pid, processName, m_minIns, m_maxIns);
+                int minPower = static_cast<int>(std::log2(m_minMemPerProc));
+                int maxPower = static_cast<int>(std::log2(m_maxMemPerProc));
+
+                // Roll a random power between min and max
+                int randomPower = minPower + (std::rand() % (maxPower - minPower + 1));
+                size_t randomMemSize = static_cast<size_t>(1) << randomPower; // Shift bit to get the actual byte size
+
+                auto batchProc = std::make_shared<Process>(
+                    pid,
+                    processName,
+                    m_minIns,
+                    m_maxIns,
+                    m_allocator,
+                    randomMemSize
+                );
 
                 // Keep the state explicit
                 batchProc->setState(ProcessState::READY);
@@ -67,11 +92,18 @@ void Scheduler::threadLoop() {
                     std::lock_guard<std::mutex> lock(m_schedulerMutex);
                     m_allTrackedProcesses.push_back(batchProc);
 
-                    if (m_schedulerType == "fcfs") {
-                        m_fcfsScheduler.addProcess(batchProc);
+                    if (batchProc->getMemoryPtr() == nullptr) {
+                        batchProc->setState(ProcessState::WAITING);
+                        m_waitingProcesses.push_back(batchProc);
                     }
-                    else if (m_schedulerType == "rr") {
-                        m_rrScheduler.addProcess(batchProc);
+                    else {
+                        batchProc->setState(ProcessState::READY);
+                        if (m_schedulerType == "fcfs") {
+                            m_fcfsScheduler.addProcess(batchProc);
+                        }
+                        else if (m_schedulerType == "rr") {
+                            m_rrScheduler.addProcess(batchProc);
+                        }
                     }
                 }
             }
@@ -89,11 +121,35 @@ void Scheduler::threadLoop() {
                 for (auto& cpu : m_cpuCores) {
                     if (!cpu.isIdle()) {
                         activeWorkDone = true;
-                        cpu.executeCycle();
+                        cpu.executeCycle(m_allocator);
 
                         auto process = cpu.getCurrentProcess();
                         if (process && process->isFinished()) {
                             process->setState(ProcessState::FINISHED);
+                            process->reclaimMemory();
+                            auto it = m_waitingProcesses.begin();
+                            while (it != m_waitingProcesses.end()) {
+                                auto waitProc = *it;
+                                void* newMem = m_allocator->allocate(waitProc->getMemRequired());
+
+                                if (newMem != nullptr) {
+                                    waitProc->setMemoryPtr(newMem);
+                                    waitProc->setState(ProcessState::READY);
+
+                                    if (m_schedulerType == "fcfs") {
+                                        m_fcfsScheduler.addProcess(waitProc);
+                                    }
+                                    else if (m_schedulerType == "rr") {
+                                        m_rrScheduler.addProcess(waitProc);
+                                    }
+                                    // Remove from waiting queue as it successfully transitioned
+                                    it = m_waitingProcesses.erase(it);
+                                }
+                                else {
+                                    // Still no memory available, check the next one
+                                    ++it;
+                                }
+                            }
                             cpu.assignProcess(nullptr);
                             cpu.resetCyclesExecuted();
                         }
@@ -116,7 +172,7 @@ void Scheduler::threadLoop() {
                 for (auto& cpu : m_cpuCores) {
                     if (!cpu.isIdle()) {
                         activeWorkDone = true;
-                        cpu.executeCycle();
+                        cpu.executeCycle(m_allocator);
                     }
                 }
 
@@ -129,6 +185,30 @@ void Scheduler::threadLoop() {
                     // Finished processes have priority
                     if (process->isFinished()) {
                         process->setState(ProcessState::FINISHED);
+                        process->reclaimMemory();
+                        auto it = m_waitingProcesses.begin();
+                        while (it != m_waitingProcesses.end()) {
+                            auto waitProc = *it;
+                            void* newMem = m_allocator->allocate(waitProc->getMemRequired());
+
+                            if (newMem != nullptr) {
+                                waitProc->setMemoryPtr(newMem);
+                                waitProc->setState(ProcessState::READY);
+
+                                if (m_schedulerType == "fcfs") {
+                                    m_fcfsScheduler.addProcess(waitProc);
+                                }
+                                else if (m_schedulerType == "rr") {
+                                    m_rrScheduler.addProcess(waitProc);
+                                }
+                                // Remove from waiting queue as it successfully transitioned
+                                it = m_waitingProcesses.erase(it);
+                            }
+                            else {
+                                // Still no memory available, check the next one
+                                ++it;
+                            }
+                        }
                         cpu.assignProcess(nullptr);
                         cpu.resetCyclesExecuted();
                     }
@@ -158,9 +238,7 @@ void Scheduler::threadLoop() {
         // If the system has 0 delay and nothing is runnable, yield CPU slice 
         // to let dashboard rendering commands print cleanly without thread choking
         if (m_delayPerExec == 0) {
-            if (!activeWorkDone) {
-                std::this_thread::yield();
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         else {
             std::this_thread::sleep_for(std::chrono::milliseconds(m_delayPerExec));

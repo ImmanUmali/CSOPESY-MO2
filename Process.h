@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <unordered_map>
 #include "Instruction.h"
+#include "IMemoryAllocator.h"
 
 enum class ProcessState { READY, RUNNING, WAITING, FINISHED };
 
@@ -18,12 +19,21 @@ private:
     std::vector<std::string> m_logs;
     std::string m_timestamp;
     std::unordered_map<std::string, int> m_symbolTable;
+
+    std::unordered_map<unsigned long, uint16_t> m_simulatedMemory;
+    size_t m_memRequired;
+    bool m_hasCrashed = false;
+    std::string m_crashTimestamp;
+    std::string m_invalidAddress;
+
     unsigned int m_remainingSleepTicks = 0;
     void evaluateInstruction(const Instruction& ins, int coreId);
+    void* m_memoryPtr;
+    IMemoryAllocator* m_allocator;
 
 public:
-    Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns);
-
+    Process(int pid, const std::string& name, uint32_t minIns, uint32_t maxIns, IMemoryAllocator* allocator, size_t memRequired);
+    ~Process();
     int getPid() const { return m_pid; }
     std::string getName() const { return m_name; }
     ProcessState getState() const { return m_state; }
@@ -34,10 +44,26 @@ public:
 
     void addLog(const std::string& message);
     void executeNextLine(int coreId);
-    bool isFinished() const { return m_commandCounter >= m_linesOfCode; }
+    bool isFinished() const { return m_commandCounter >= m_linesOfCode || m_hasCrashed; }
     void setState(ProcessState state);
 
     void decrementSleep() { if (m_remainingSleepTicks > 0) m_remainingSleepTicks--; }
     unsigned int getRemainingSleep() const { return m_remainingSleepTicks; }
     void setSleepTicks(unsigned int ticks) { m_remainingSleepTicks = ticks; }
+
+    void* getMemoryPtr() const { return m_memoryPtr; }
+    void reclaimMemory();
+
+    bool hasCrashed() const { return m_hasCrashed; }
+    std::string getCrashTimestamp() const { return m_crashTimestamp; }
+    std::string getInvalidAddress() const { return m_invalidAddress; }
+
+    void setCustomInstructions(const std::vector<Instruction>& instrs) {
+        m_instructions = instrs;
+        m_linesOfCode = instrs.size();
+    }
+
+    size_t getMemorySize() const { return m_memRequired; }
+    size_t getMemRequired() const { return m_memRequired; }
+    void setMemoryPtr(void* ptr) { m_memoryPtr = ptr; }
 };

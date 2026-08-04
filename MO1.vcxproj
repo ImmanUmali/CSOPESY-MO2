@@ -139,29 +139,36 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="BackingStore.cpp" />
     <ClCompile Include="ConfigLoader.cpp" />
     <ClCompile Include="ConsoleShell.cpp" />
     <ClCompile Include="CPUCore.cpp" />
     <ClCompile Include="FCFS.cpp" />
+    <ClCompile Include="FrameTable.cpp" />
     <ClCompile Include="MemoryManager.cpp" />
     <ClCompile Include="MO1.cpp" />
+    <ClCompile Include="PagedMemoryManager.cpp" />
     <ClCompile Include="Process.cpp" />
     <ClCompile Include="RR.cpp" />
     <ClCompile Include="Scheduler.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BackingStore.h" />
     <ClInclude Include="ConfigLoader.h" />
     <ClInclude Include="ConfigStructure.h" />
     <ClInclude Include="ConsoleShell.h" />
     <ClInclude Include="CoreCommands.h" />
     <ClInclude Include="CPUCore.h" />
     <ClInclude Include="FCFS.h" />
+    <ClInclude Include="FrameTable.h" />
     <ClInclude Include="ICommand.h" />
+    <ClInclude Include="IMemoryAllocator.h" />
     <ClInclude Include="Instruction.h" />
     <ClInclude Include="ISystemContext.h" />
-    <ClInclude Include="MemoryBlock.h" />
     <ClInclude Include="MemoryManager.h" />
     <ClInclude Include="MultiplexerCommands.h" />
+    <ClInclude Include="PagedMemoryManager.h" />
+    <ClInclude Include="PageTable.h" />
     <ClInclude Include="Process.h" />
     <ClInclude Include="RR.h" />
     <ClInclude Include="Scheduler.h" />

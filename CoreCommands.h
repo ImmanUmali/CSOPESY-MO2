@@ -4,7 +4,7 @@
 #include "ISystemContext.h"
 #include "ConfigLoader.h"
 #include "ConsoleShell.h"
-#include "MemoryManager.h"
+#include "PagedMemoryManager.h"
 #include <iostream>
 
 class ExitCommand : public ICommand {
@@ -39,7 +39,8 @@ public:
         context.setInitialized(true);
 
         ConsoleShell& shell = static_cast<ConsoleShell&>(context);
-        auto memManager = std::make_unique<MemoryManager>(parsedConfig.maxOverallMem, parsedConfig.memPerProc);
+        auto memManager = std::make_unique<PagedMemoryManager>(parsedConfig.maxOverallMem, parsedConfig.memPerFrame);
+        IMemoryAllocator* allocatorPtr = memManager.get();
         shell.setMemoryManager(std::move(memManager));
 
 
@@ -53,19 +54,64 @@ public:
         std::cout << " Execution Delay     : " << parsedConfig.delayPerExec << "\n";
         std::cout << " Max Overall Memory  : " << parsedConfig.maxOverallMem << " bytes\n";
         std::cout << " Memory Per Frame    : " << parsedConfig.memPerFrame << " bytes\n";
-        std::cout << " Fixed Memory / Proc : " << parsedConfig.memPerProc << " bytes\n";
+        std::cout << " Memory Per Proc     : [" << parsedConfig.minMemPerProc << ", " << parsedConfig.maxMemPerProc << "] bytes\n";
         std::cout << "-------------------------------------------\n";
-        std::cout << "First-Fit Memory Partitioning initialized.\n" << std::endl;
+        std::cout << "Paged Memory Partitioning initialized.\n" << std::endl;
 
         auto scheduler = std::make_shared<Scheduler>(
             parsedConfig.scheduler,
             parsedConfig.numCpu,
             parsedConfig.quantumCycles,
-            parsedConfig.delayPerExec
+            parsedConfig.delayPerExec,
+            allocatorPtr,
+            parsedConfig.minMemPerProc,
+            parsedConfig.maxMemPerProc
         );
 
         context.setScheduler(scheduler);
         scheduler->start();
         std::cout << "Background scheduler thread spawned successfully!\n" << std::endl;
+    }
+};
+
+class VmStatCommand : public ICommand {
+public:
+    std::string getName() const override { return "vmstat"; }
+    bool isBypassingInitialization() const override { return false; }
+
+    void execute(ISystemContext& context, const std::vector<std::string>& args) override {
+        ConsoleShell& shell = static_cast<ConsoleShell&>(context);
+        auto memMgr = dynamic_cast<PagedMemoryManager*>(shell.getMemoryManager());
+        auto sched = shell.getScheduler();
+
+        if (!memMgr || !sched) {
+            std::cout << "Error: Memory Manager or Scheduler not fully initialized.\n\n";
+            return;
+        }
+
+        size_t totalMem = memMgr->getMaxMemory();
+        size_t usedMem = memMgr->getUsedMemory();
+        size_t freeMem = memMgr->getFreeMemory();
+
+        // Calculate CPU core ticks across all cores
+        uint64_t totalTicks = sched->getCpuCycles();
+        size_t cores = sched->getCores().size();
+
+        size_t activeCores = 0;
+        for (const auto& core : sched->getCores()) {
+            if (!core.isIdle()) activeCores++;
+        }
+
+        uint64_t activeTicks = totalTicks * activeCores;
+        uint64_t idleTicks = (totalTicks * cores) - activeTicks;
+
+        std::cout << totalMem << " K total memory\n";
+        std::cout << usedMem << " K used memory\n";
+        std::cout << freeMem << " K free memory\n";
+        std::cout << idleTicks << " idle cpu ticks\n";
+        std::cout << activeTicks << " active cpu ticks\n";
+        std::cout << (totalTicks * cores) << " total cpu ticks\n";
+        std::cout << memMgr->getPagedInCount() << " pages paged in\n";
+        std::cout << memMgr->getPagedOutCount() << " pages paged out\n\n";
     }
 };
