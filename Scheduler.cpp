@@ -179,9 +179,7 @@ void Scheduler::threadLoop() {
         // If the system has 0 delay and nothing is runnable, yield CPU slice 
         // to let dashboard rendering commands print cleanly without thread choking
         if (m_delayPerExec == 0) {
-            if (!activeWorkDone) {
-                std::this_thread::yield();
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         else {
             std::this_thread::sleep_for(std::chrono::milliseconds(m_delayPerExec));

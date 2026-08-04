@@ -257,12 +257,20 @@ public:
                 return;
             }
 
+            // 1. Check if process crashed due to memory access violation
             if (existingProc->hasCrashed()) {
                 std::cout << "Process " << processName << " shut down due to memory access violation error that occurred at "
                     << existingProc->getCrashTimestamp() << ". " << existingProc->getInvalidAddress() << " invalid.\n" << std::endl;
                 return;
             }
 
+            // 2. Check if process finished execution normally
+            if (existingProc->isFinished()) {
+                std::cout << "Process " << processName << " has already finished execution.\n" << std::endl;
+                return;
+            }
+
+            // Process is still active -> re-attach to sub-screen
             shell.setAttachedProcess(processName);
             shell.changeView(TerminalView::SCREEN_MULTIPLEXER);
             ClearTerminal();
