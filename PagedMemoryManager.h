@@ -5,6 +5,7 @@
 #include "BackingStore.h"
 #include <list>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <cstdint>
 #include <mutex>
@@ -17,7 +18,7 @@ private:
     FrameTable m_frameTable;
 
     std::unordered_map<void*, PageTable> m_pageDirectory;
-
+    std::unordered_set<void*> m_deadlockedProcesses;
     // Counter to generate unique simulated virtual addresses
     size_t m_virtualAddressCounter;
     BackingStore m_backingStore;
@@ -44,4 +45,7 @@ public:
     size_t getFreeMemory() const { return m_frameTable.getFreeFrameCount() * m_frameSize; }
     uint64_t getPagedInCount() const { return m_pagedInCount; }
     uint64_t getPagedOutCount() const { return m_pagedOutCount; }
+    bool isProcessDeadlocked(void* ptr) const {
+        return m_deadlockedProcesses.count(ptr) > 0;
+    }
 };

@@ -14,6 +14,7 @@ PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize)
 void* PagedMemoryManager::allocate(size_t size) {
     if (size == 0) return nullptr;
 
+    
     if (m_pageDirectory.size() >= m_frameTable.getTotalFrames()) {
         return nullptr; // Forces the process into the Waiting Queue
     }
@@ -104,6 +105,10 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
 
         // FIFO Page Replacement when RAM is full
         if (physicalFrame == SIZE_MAX) {
+            if (numPages > m_frameTable.getTotalFrames()) {
+                m_deadlockedProcesses.insert(ptr);
+                return true; // Cycle consumed, but process is now deadlocked
+            }
             physicalFrame = m_fifoQueue.front();
             m_fifoQueue.pop_front();
 

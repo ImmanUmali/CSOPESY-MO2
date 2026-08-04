@@ -24,6 +24,11 @@ void CPUCore::executeCycle(IMemoryAllocator* globalAllocator) {
     PagedMemoryManager* pagedManager = dynamic_cast<PagedMemoryManager*>(globalAllocator);
 
     if (pagedManager && procMem) {
+        if (pagedManager->isProcessDeadlocked(procMem)) {
+            m_currentProcess->setState(ProcessState::WAITING);
+            assignProcess(nullptr);
+            return;
+        }
         bool pageFault = pagedManager->performMemoryAccess(procMem);
 
         if (pageFault) {
