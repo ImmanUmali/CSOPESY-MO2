@@ -15,7 +15,7 @@ bool isPowerOfTwo(long long n) {
 }
 
 bool isValidMemRange(long long val) {
-    return (val >= 64 && val <= 65536) && isPowerOfTwo(val);
+    return (val >= 2 && val <= 65536) && isPowerOfTwo(val);
 }
 
 bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& outConfig) {
