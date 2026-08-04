@@ -147,10 +147,10 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         std::cerr << "Validation Error: min-mem-per-proc cannot be greater than max-mem-per-proc.\n";
         return false;
     }
-    if (tempConfig.maxMemPerProc > tempConfig.maxOverallMem) {
-        std::cerr << "Validation Error: max-mem-per-proc cannot be larger than max-overall-mem.\n";
-        return false;
-    }
+    //if (tempConfig.maxMemPerProc > tempConfig.maxOverallMem) {
+    //    std::cerr << "Validation Error: max-mem-per-proc cannot be larger than max-overall-mem.\n";
+    //    return false;
+    //}
     if (tempConfig.scheduler == "rr" && tempConfig.quantumCycles == 0) {
         std::cerr << "Validation Error: quantum-cycles must be >= 1 when using the 'rr' (Round Robin) scheduler.\n";
         return false;
