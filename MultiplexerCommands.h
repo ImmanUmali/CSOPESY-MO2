@@ -396,7 +396,7 @@ public:
         for (const auto& proc : trackedProcesses) {
             if (proc && !proc->isFinished()) {
                 activeFound = true;
-                size_t procMem = proc->getMemorySize();
+                size_t procMem = proc->getMemRequired();
                 size_t procMemMiB = procMem / (1024 * 1024);
                 if (procMemMiB == 0) procMemMiB = procMem; 
 
