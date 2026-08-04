@@ -21,11 +21,21 @@ void CPUCore::executeCycle(IMemoryAllocator* globalAllocator) {
     // Phase 5: Simulate memory access before executing the instruction
     void* procMem = m_currentProcess->getMemoryPtr();
 
+    // HARD STOP: If the process has no memory assigned, it cannot execute!
+    //if (procMem == nullptr) {
+    //    return;
+    //}
+
     // Attempt to cast the interface to our concrete PagedMemoryManager
     PagedMemoryManager* pagedManager = dynamic_cast<PagedMemoryManager*>(globalAllocator);
 
     if (pagedManager && procMem) {
         bool pageFault = pagedManager->performMemoryAccess(procMem);
+
+        if (pageFault) {
+            // Cycle consumed by handling the page fault
+            return;
+        }
     }
 
     // If no page fault occurred (all process pages resident), execute next instruction

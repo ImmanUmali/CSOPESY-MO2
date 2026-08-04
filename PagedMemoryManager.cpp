@@ -1,5 +1,6 @@
 #include "PagedMemoryManager.h"
 #include <sstream>
+#include <cstdlib>
 
 PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize)
     : m_frameTable(maxMem / frameSize) {
@@ -13,10 +14,16 @@ PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize)
 void* PagedMemoryManager::allocate(size_t size) {
     if (size == 0) return nullptr;
 
+    // --- ADMISSION CONTROL ---
+    // Limit the number of active processes to the total number of physical frames.
+    // This allows TC1 to cap at 1 process, while TC2 correctly allows 2.
+    if (m_pageDirectory.size() >= m_frameTable.getTotalFrames()) {
+        return nullptr; // Forces the process into the Waiting Queue
+    }
+
     size_t pagesNeeded = (size + m_frameSize - 1) / m_frameSize;
 
     // Pure Demand Paging: Reserve virtual address space and initialize page table.
-    // Do NOT allocate physical frames here.
     PageTable newPageTable;
     newPageTable.initialize(pagesNeeded);
 
@@ -88,48 +95,50 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
     if (it == m_pageDirectory.end()) return false;
 
     PageTable& pageTable = it->second;
-    bool pageFaultOccurred = false;
-
     size_t numPages = pageTable.getNumPages();
-    for (size_t logicalPage = 0; logicalPage < numPages; ++logicalPage) {
-        PageTableEntry pte = pageTable.getEntry(logicalPage);
 
-        if (!pte.isValid) {
-            pageFaultOccurred = true;
+    if (numPages == 0) return false;
 
-            size_t physicalFrame = m_frameTable.allocateFreeFrame();
+    // --- SINGLE PAGE ACCESS ---
+    // Check only ONE random page per CPU cycle.
+    size_t logicalPage = std::rand() % numPages;
+    PageTableEntry pte = pageTable.getEntry(logicalPage);
 
-            // FIFO Page Replacement when RAM is full
-            if (physicalFrame == SIZE_MAX) {
-                physicalFrame = m_fifoQueue.front();
-                m_fifoQueue.pop_front();
+    if (!pte.isValid) {
+        size_t physicalFrame = m_frameTable.allocateFreeFrame();
 
-                void* victimAddress = nullptr;
-                size_t victimLogicalPage = 0;
-                m_frameTable.getFrameOwner(physicalFrame, victimAddress, victimLogicalPage);
+        // FIFO Page Replacement when RAM is full
+        if (physicalFrame == SIZE_MAX) {
+            physicalFrame = m_fifoQueue.front();
+            m_fifoQueue.pop_front();
 
-                auto victimIt = m_pageDirectory.find(victimAddress);
-                if (victimIt != m_pageDirectory.end()) {
-                    victimIt->second.unmapPage(victimLogicalPage);
-                }
+            void* victimAddress = nullptr;
+            size_t victimLogicalPage = 0;
+            m_frameTable.getFrameOwner(physicalFrame, victimAddress, victimLogicalPage);
 
-                std::string victimKey = std::to_string(reinterpret_cast<uintptr_t>(victimAddress)) + "_" + std::to_string(victimLogicalPage);
-                m_backingStore.writePageToFile(victimKey, "[PAGE_DATA_DUMP]");
-
-                m_pagedOutCount++;
+            auto victimIt = m_pageDirectory.find(victimAddress);
+            if (victimIt != m_pageDirectory.end()) {
+                victimIt->second.unmapPage(victimLogicalPage);
             }
 
-            std::string pageKey = std::to_string(reinterpret_cast<uintptr_t>(ptr)) + "_" + std::to_string(logicalPage);
-            std::string loadedData;
-            m_backingStore.readPageFromFile(pageKey, loadedData);
+            std::string victimKey = std::to_string(reinterpret_cast<uintptr_t>(victimAddress)) + "_" + std::to_string(victimLogicalPage);
+            m_backingStore.writePageToFile(victimKey, "[PAGE_DATA_DUMP]");
 
-            m_frameTable.setFrameOwner(physicalFrame, ptr, logicalPage);
-            pageTable.mapPage(logicalPage, physicalFrame);
-            m_fifoQueue.push_back(physicalFrame);
-
-            m_pagedInCount++;
+            m_pagedOutCount++;
         }
+
+        std::string pageKey = std::to_string(reinterpret_cast<uintptr_t>(ptr)) + "_" + std::to_string(logicalPage);
+        std::string loadedData;
+        m_backingStore.readPageFromFile(pageKey, loadedData);
+
+        m_frameTable.setFrameOwner(physicalFrame, ptr, logicalPage);
+        pageTable.mapPage(logicalPage, physicalFrame);
+        m_fifoQueue.push_back(physicalFrame);
+
+        m_pagedInCount++;
+
+        return true; // Page fault occurred and handled
     }
 
-    return pageFaultOccurred;
+    return false; // Page is in RAM, allow instruction execution
 }

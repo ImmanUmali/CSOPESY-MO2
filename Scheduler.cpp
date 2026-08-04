@@ -42,14 +42,20 @@ void Scheduler::stop() {
 void Scheduler::addProcess(std::shared_ptr<Process> process) {
     std::lock_guard<std::mutex> lock(m_schedulerMutex);
 
-    // Track globally for reporting metrics
     m_allTrackedProcesses.push_back(process);
 
-    if (m_schedulerType == "fcfs") {
-        m_fcfsScheduler.addProcess(process);
-    }
-    else if (m_schedulerType == "rr") {
-        m_rrScheduler.addProcess(process);
+    // If no memory was allocated, send to Waiting Queue instead of Ready Queue
+    if (process->getMemoryPtr() == nullptr) {
+        process->setState(ProcessState::WAITING);
+        m_waitingProcesses.push_back(process);
+    } 
+    else {
+        if (m_schedulerType == "fcfs") {
+            m_fcfsScheduler.addProcess(process);
+        }
+        else if (m_schedulerType == "rr") {
+            m_rrScheduler.addProcess(process);
+        }
     }
 }
 
@@ -86,11 +92,18 @@ void Scheduler::threadLoop() {
                     std::lock_guard<std::mutex> lock(m_schedulerMutex);
                     m_allTrackedProcesses.push_back(batchProc);
 
-                    if (m_schedulerType == "fcfs") {
-                        m_fcfsScheduler.addProcess(batchProc);
+                    if (batchProc->getMemoryPtr() == nullptr) {
+                        batchProc->setState(ProcessState::WAITING);
+                        m_waitingProcesses.push_back(batchProc);
                     }
-                    else if (m_schedulerType == "rr") {
-                        m_rrScheduler.addProcess(batchProc);
+                    else {
+                        batchProc->setState(ProcessState::READY);
+                        if (m_schedulerType == "fcfs") {
+                            m_fcfsScheduler.addProcess(batchProc);
+                        }
+                        else if (m_schedulerType == "rr") {
+                            m_rrScheduler.addProcess(batchProc);
+                        }
                     }
                 }
             }
@@ -114,6 +127,29 @@ void Scheduler::threadLoop() {
                         if (process && process->isFinished()) {
                             process->setState(ProcessState::FINISHED);
                             process->reclaimMemory();
+                            auto it = m_waitingProcesses.begin();
+                            while (it != m_waitingProcesses.end()) {
+                                auto waitProc = *it;
+                                void* newMem = m_allocator->allocate(waitProc->getMemRequired());
+
+                                if (newMem != nullptr) {
+                                    waitProc->setMemoryPtr(newMem);
+                                    waitProc->setState(ProcessState::READY);
+
+                                    if (m_schedulerType == "fcfs") {
+                                        m_fcfsScheduler.addProcess(waitProc);
+                                    }
+                                    else if (m_schedulerType == "rr") {
+                                        m_rrScheduler.addProcess(waitProc);
+                                    }
+                                    // Remove from waiting queue as it successfully transitioned
+                                    it = m_waitingProcesses.erase(it);
+                                }
+                                else {
+                                    // Still no memory available, check the next one
+                                    ++it;
+                                }
+                            }
                             cpu.assignProcess(nullptr);
                             cpu.resetCyclesExecuted();
                         }
@@ -150,6 +186,29 @@ void Scheduler::threadLoop() {
                     if (process->isFinished()) {
                         process->setState(ProcessState::FINISHED);
                         process->reclaimMemory();
+                        auto it = m_waitingProcesses.begin();
+                        while (it != m_waitingProcesses.end()) {
+                            auto waitProc = *it;
+                            void* newMem = m_allocator->allocate(waitProc->getMemRequired());
+
+                            if (newMem != nullptr) {
+                                waitProc->setMemoryPtr(newMem);
+                                waitProc->setState(ProcessState::READY);
+
+                                if (m_schedulerType == "fcfs") {
+                                    m_fcfsScheduler.addProcess(waitProc);
+                                }
+                                else if (m_schedulerType == "rr") {
+                                    m_rrScheduler.addProcess(waitProc);
+                                }
+                                // Remove from waiting queue as it successfully transitioned
+                                it = m_waitingProcesses.erase(it);
+                            }
+                            else {
+                                // Still no memory available, check the next one
+                                ++it;
+                            }
+                        }
                         cpu.assignProcess(nullptr);
                         cpu.resetCyclesExecuted();
                     }

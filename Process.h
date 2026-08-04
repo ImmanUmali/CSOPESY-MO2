@@ -64,4 +64,6 @@ public:
     }
 
     size_t getMemorySize() const { return m_memRequired; }
+    size_t getMemRequired() const { return m_memRequired; }
+    void setMemoryPtr(void* ptr) { m_memoryPtr = ptr; }
 };
