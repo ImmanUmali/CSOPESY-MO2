@@ -32,7 +32,7 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
     while (file >> key >> valueStr) {
         if (key == "num-cpu") {
             long long val = std::stoll(valueStr);
-            if (val < 1 || val > 128) {  
+            if (val < 1 || val > 128) {
                 std::cerr << "Validation Error: num-cpu value " << val << " is outside [1, 128].\n";
                 return false;
             }
@@ -41,7 +41,7 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         }
         else if (key == "scheduler") {
             std::string sched = stripQuotes(valueStr);
-            if (sched != "fcfs" && sched != "rr") { 
+            if (sched != "fcfs" && sched != "rr") {
                 std::cerr << "Validation Error: scheduler must be 'fcfs' or 'rr'. Found: " << sched << "\n";
                 return false;
             }
@@ -50,8 +50,9 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         }
         else if (key == "quantum-cycles") {
             long long val = std::stoll(valueStr);
-            if (val < 1) { 
-                std::cerr << "Validation Error: quantum-cycles must be >= 1.\n";
+            // Allow 0 temporarily; we will cross-validate with the scheduler type at the end
+            if (val < 0) {
+                std::cerr << "Validation Error: quantum-cycles cannot be negative.\n";
                 return false;
             }
             tempConfig.quantumCycles = static_cast<uint32_t>(val);
@@ -77,7 +78,7 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         }
         else if (key == "max-ins") {
             long long val = std::stoll(valueStr);
-            if (val < 1) { 
+            if (val < 1) {
                 std::cerr << "Validation Error: max-ins must be >= 1.\n";
                 return false;
             }
@@ -86,7 +87,7 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         }
         else if (key == "delay-per-exec") {
             long long val = std::stoll(valueStr);
-            if (val < 0) { 
+            if (val < 0) {
                 std::cerr << "Validation Error: delay-per-exec cannot be negative.\n";
                 return false;
             }
@@ -150,7 +151,10 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         std::cerr << "Validation Error: max-mem-per-proc cannot be larger than max-overall-mem.\n";
         return false;
     }
-
+    if (tempConfig.scheduler == "rr" && tempConfig.quantumCycles == 0) {
+        std::cerr << "Validation Error: quantum-cycles must be >= 1 when using the 'rr' (Round Robin) scheduler.\n";
+        return false;
+    }
     outConfig = tempConfig;
     return true;
 }
