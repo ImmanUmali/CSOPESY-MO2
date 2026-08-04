@@ -14,16 +14,13 @@ PagedMemoryManager::PagedMemoryManager(size_t maxMem, size_t frameSize)
 void* PagedMemoryManager::allocate(size_t size) {
     if (size == 0) return nullptr;
 
-    // --- ADMISSION CONTROL ---
-    // Limit the number of active processes to the total number of physical frames.
-    // This allows TC1 to cap at 1 process, while TC2 correctly allows 2.
     if (m_pageDirectory.size() >= m_frameTable.getTotalFrames()) {
         return nullptr; // Forces the process into the Waiting Queue
     }
 
     size_t pagesNeeded = (size + m_frameSize - 1) / m_frameSize;
 
-    // Pure Demand Paging: Reserve virtual address space and initialize page table.
+    // Reserve virtual address space and initialize page table
     PageTable newPageTable;
     newPageTable.initialize(pagesNeeded);
 
@@ -52,7 +49,6 @@ void PagedMemoryManager::deallocate(void* ptr) {
     for (size_t logicalPage = 0; logicalPage < numPages; ++logicalPage) {
         const PageTableEntry& pte = pageTable.getEntry(logicalPage);
 
-        // Only free physical frames if the page is currently loaded in RAM
         if (pte.isValid) {
             m_frameTable.freeFrame(pte.frameIndex);
             m_fifoQueue.remove(pte.frameIndex);
@@ -99,7 +95,6 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
 
     if (numPages == 0) return false;
 
-    // --- SINGLE PAGE ACCESS ---
     // Check only ONE random page per CPU cycle.
     size_t logicalPage = std::rand() % numPages;
     PageTableEntry pte = pageTable.getEntry(logicalPage);
@@ -137,8 +132,8 @@ bool PagedMemoryManager::performMemoryAccess(void* ptr) {
 
         m_pagedInCount++;
 
-        return true; // Page fault occurred and handled
+        return true; 
     }
 
-    return false; // Page is in RAM, allow instruction execution
+    return false; 
 }

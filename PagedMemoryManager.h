@@ -14,10 +14,8 @@ private:
     size_t m_frameSize;
     std::mutex m_memoryMutex;
 
-    // The global physical memory manager
     FrameTable m_frameTable;
 
-    // Maps a simulated virtual base address to its corresponding PageTable
     std::unordered_map<void*, PageTable> m_pageDirectory;
 
     // Counter to generate unique simulated virtual addresses

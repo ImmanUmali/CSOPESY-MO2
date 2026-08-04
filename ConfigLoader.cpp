@@ -50,7 +50,7 @@ bool ConfigLoader::loadAndValidate(const std::string& filename, SystemConfig& ou
         }
         else if (key == "quantum-cycles") {
             long long val = std::stoll(valueStr);
-            // Allow 0 temporarily; we will cross-validate with the scheduler type at the end
+            
             if (val < 0) {
                 std::cerr << "Validation Error: quantum-cycles cannot be negative.\n";
                 return false;

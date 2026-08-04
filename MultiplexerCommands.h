@@ -172,7 +172,6 @@ public:
         std::string flag = args[0];
         ConsoleShell& shell = static_cast<ConsoleShell&>(context);
 
-        // If input is screen -ls
         if (flag == "-ls") {
             std::stringstream ss;
             GenerateReportStream(ss, shell); 
@@ -184,7 +183,7 @@ public:
             return;
         }
 
-        // 3. Guard for -s and -r which require a process name 
+        // Guard for -s and -r which require a process name 
         if (args.size() < 2) {
             std::cout << "Usage: screen " << flag << " <process_name>\n" << std::endl;
             return;
@@ -192,7 +191,6 @@ public:
 
         std::string processName = args[1];
 
-        // If input is screen -s
         if (flag == "-s") {
             if (args.size() < 3) {
                 std::cout << "Usage: screen -s <process_name> <process_memory_size>\n" << std::endl;
@@ -228,7 +226,7 @@ public:
                 cfg.minIns,
                 cfg.maxIns,
                 shell.getMemoryManager(),
-                static_cast<uint32_t>(requestedMemory) // Uses the validated user input
+                static_cast<uint32_t>(requestedMemory) 
             );
 
             shell.addProcess(newProc);
@@ -314,7 +312,6 @@ public:
             PrintProcessScreen(newProc.get());
         }
 
-        // If input is screen -r
         else if (flag == "-r") {
             Process* existingProc = shell.findProcess(processName);
 
@@ -323,19 +320,18 @@ public:
                 return;
             }
 
-            // 1. Check if process crashed due to memory access violation
+            // Check if process crashed due to memory access violation
             if (existingProc->hasCrashed()) {
                 std::cout << "Process " << processName << " shut down due to memory access violation error that occurred at "
                     << existingProc->getCrashTimestamp() << ". " << existingProc->getInvalidAddress() << " invalid.\n" << std::endl;
                 return;
             }
 
-            // 2. Re-attach to sub-screen and print process logs/output
+            // Re-attach 
             shell.setAttachedProcess(processName);
             shell.changeView(TerminalView::SCREEN_MULTIPLEXER);
             ClearTerminal();
 
-            // Print the sub-screen details and log history!
             PrintProcessScreen(existingProc);
         }
         else {

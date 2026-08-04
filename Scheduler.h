@@ -12,15 +12,15 @@
 class Scheduler {
 private:
     std::string m_schedulerType;
-    std::vector<CPUCore> m_cpuCores;         // CPU Core Array owned here
-    FCFSScheduler m_fcfsScheduler;           // Ready Queue owned here
-    RoundRobinScheduler m_rrScheduler;       // Ready Queue owned here
+    std::vector<CPUCore> m_cpuCores; 
+    FCFSScheduler m_fcfsScheduler;
+    RoundRobinScheduler m_rrScheduler;
     unsigned int m_delayPerExec;
 
     // Threading & Counters
-    std::atomic<unsigned int> m_cpuCycles;   // Master CPU cycle counter
+    std::atomic<unsigned int> m_cpuCycles;
     std::atomic<bool> m_running;
-    std::thread m_schedulerThread;           // The Scheduler Thread
+    std::thread m_schedulerThread;
 
     std::atomic<bool> m_generationEnabled{false};
     unsigned int m_batchProcessFreq{1};
@@ -28,21 +28,21 @@ private:
     uint32_t m_maxIns{0};
     std::atomic<int> m_generatedPidCounter{0};
     mutable std::mutex m_schedulerMutex; 
-    std::vector<std::shared_ptr<Process>> m_allTrackedProcesses; // Universal tracker for screen -ls
+    std::vector<std::shared_ptr<Process>> m_allTrackedProcesses;
     std::vector<std::shared_ptr<Process>> m_waitingProcesses;
 
     IMemoryAllocator* m_allocator;
     size_t m_minMemPerProc;
     size_t m_maxMemPerProc;
 
-    void threadLoop();                       // Background execution loop
+    void threadLoop(); 
 
 public:
     Scheduler(const std::string& type, int numCpu, unsigned int quantum, unsigned int delayPerExec, IMemoryAllocator* allocator, size_t minMemPerProc, size_t maxMemPerProc);
     ~Scheduler();
 
-    void start();                            // Spins up the background thread
-    void stop();                             // Safely stops the thread
+    void start();
+    void stop();
     void addProcess(std::shared_ptr<Process> process);
 
     unsigned int getCpuCycles() const { return m_cpuCycles.load(); }

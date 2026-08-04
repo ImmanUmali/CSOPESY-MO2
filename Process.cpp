@@ -81,7 +81,6 @@ Process::Process(int pid, const std::string& name, uint32_t minIns, uint32_t max
         m_instructions.push_back(generateRandomInstruction(1));
     }
 
-    // Default configuration specification baseline log matching exact spacing requirement
     std::stringstream formattedLog;
     formattedLog << "(" << m_timestamp << ") Core:0 \"Hello world from " << m_name << "!\"";
     m_logs.push_back(formattedLog.str());
@@ -93,7 +92,6 @@ void Process::setState(ProcessState state) {
 
 void Process::addLog(const std::string& message) {
     m_logs.push_back(message);
-    // Keep sliding-window constraints maxed at 5 rows per image specifications
     if (m_logs.size() > 5) {
         m_logs.erase(m_logs.begin());
     }
@@ -110,7 +108,6 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
             for (size_t i = 0; i < ins.args.size(); ++i) {
                 std::string arg = ins.args[i];
                 
-                // Skip '+' concatenation operators
                 if (arg == "+") continue;
 
                 // Strip any remaining backslashes or quotation marks
@@ -121,7 +118,6 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
 
                 // Check if argument is in symbol table
                 if (m_symbolTable.find(arg) != m_symbolTable.end()) {
-                    // If there's already text in the buffer and it doesn't end with a space, add one!
                     if (!printOutput.empty() && printOutput.back() != ' ') {
                         printOutput += " ";
                     }
@@ -189,17 +185,14 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
         break;
     }
     case OpCode::ADD: {
-        // Handles MCO2 custom string syntax: ADD dest op1 op2 (e.g., ADD varA varA varB)
         if (ins.args.size() >= 3) {
             std::string dest = ins.args[0];
 
-            // Check if argument is a number or a variable name
             int val1 = (isdigit(ins.args[1][0]) || ins.args[1][0] == '-') ? std::stoi(ins.args[1]) : m_symbolTable[ins.args[1]];
             int val2 = (isdigit(ins.args[2][0]) || ins.args[2][0] == '-') ? std::stoi(ins.args[2]) : m_symbolTable[ins.args[2]];
 
             m_symbolTable[dest] = val1 + val2;
         }
-        // Handles original MO1 batch syntax: ADD var val (e.g., ADD x 1)
         else {
             std::string varName = ins.args.empty() ? "var" : ins.args[0];
             int val = 1;
@@ -211,14 +204,12 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
         break;
     }
     case OpCode::SUBTRACT: {
-        // Handles MCO2 custom string syntax: SUBTRACT dest op1 op2
         if (ins.args.size() >= 3) {
             std::string dest = ins.args[0];
             int val1 = (isdigit(ins.args[1][0]) || ins.args[1][0] == '-') ? std::stoi(ins.args[1]) : m_symbolTable[ins.args[1]];
             int val2 = (isdigit(ins.args[2][0]) || ins.args[2][0] == '-') ? std::stoi(ins.args[2]) : m_symbolTable[ins.args[2]];
             m_symbolTable[dest] = val1 - val2;
         }
-        // Handles original MO1 batch syntax: SUBTRACT var val
         else {
             std::string varName = ins.args.empty() ? "var" : ins.args[0];
             int val = 1;
@@ -230,7 +221,6 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
         break;
     }
     case OpCode::SLEEP: {
-        // Read arguments or default to a randomized sleep tick constraint (e.g., 5 to 15 ticks)
         unsigned int ticksToSleep = ins.args.empty() ? 10 : std::stoul(ins.args[0]);
 
         m_state = ProcessState::WAITING;
@@ -240,7 +230,6 @@ void Process::evaluateInstruction(const Instruction& ins, int coreId) {
         break;
     }
     case OpCode::FOR: {
-        // A loop container doesn't log a message itself; it recursively executes its children
         for (uint32_t r = 0; r < ins.repeatCount; ++r) {
             for (const auto& child : ins.childInstructions) {
                 evaluateInstruction(child, coreId);
@@ -256,7 +245,6 @@ void Process::executeNextLine(int coreId) {
 
     m_state = ProcessState::RUNNING;
 
-    // Fetch the active structural instructions node
     const Instruction& activeIns = m_instructions[m_commandCounter];
     evaluateInstruction(activeIns, coreId);
 
@@ -268,7 +256,7 @@ void Process::executeNextLine(int coreId) {
 void Process::reclaimMemory() {
     if (m_allocator && m_memoryPtr) {
         m_allocator->deallocate(m_memoryPtr);
-        m_memoryPtr = nullptr; // Ensure we don't double-free
+        m_memoryPtr = nullptr; // Ensure no double-free
     }
 }
 

@@ -1,5 +1,4 @@
 #pragma once
-//#include "MemoryBlock.h"
 #include "IMemoryAllocator.h"
 #include <vector>
 #include <string>
@@ -20,7 +19,6 @@ private:
 
 public:
     MemoryManager(uint32_t maxOverallMem, uint32_t memPerProc);
-    // ~MemoryManager() = default;
     ~MemoryManager() override = default;
 
     // Core first-fit logic

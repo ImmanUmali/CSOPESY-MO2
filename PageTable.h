@@ -5,7 +5,7 @@
 
 struct PageTableEntry {
     size_t frameIndex;
-    bool isValid; // True if in physical memory (RAM), False if on disk (Backing Store)
+    bool isValid; // True if in RAM, False if on backing store
 
     PageTableEntry() : frameIndex(SIZE_MAX), isValid(false) {}
 };
@@ -18,7 +18,6 @@ public:
     PageTable() = default;
     ~PageTable() = default;
 
-    // Initialize the page table for a specific number of required pages
     void initialize(size_t numPages) {
         m_entries.resize(numPages);
     }
@@ -31,7 +30,7 @@ public:
         }
     }
 
-    // Unmap a logical page (e.g., when sent to backing store or freed)
+    // Unmap a logical page
     void unmapPage(size_t logicalPage) {
         if (logicalPage < m_entries.size()) {
             m_entries[logicalPage].frameIndex = SIZE_MAX;

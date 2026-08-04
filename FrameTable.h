@@ -26,7 +26,6 @@ public:
     // Frees a specific frame index
     void freeFrame(size_t frameIndex);
 
-    // Getters
     size_t getFreeFrameCount() const;
     size_t getTotalFrames() const;
     bool isFrameFree(size_t frameIndex) const;

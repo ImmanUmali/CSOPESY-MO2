@@ -50,7 +50,7 @@ void ConsoleShell::setupCommands() {
 }
 
 Process* ConsoleShell::findProcess(const std::string& name) {
-    // 1. Check local manual process tracker first
+    // Check local manual process tracker first
     for (auto& proc : m_processList) {
         if (proc->getName() == name) {
             return proc.get();

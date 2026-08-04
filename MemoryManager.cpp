@@ -10,7 +10,6 @@ MemoryManager::MemoryManager(uint32_t maxOverallMem, uint32_t memPerProc)
     this->currentAllocatedSize = 0;
     this->memoryAllocatorType = FLAT_MEMORY_ALLOCATOR;
 
-    // Initially, the system starts with one giant free block spanning all memory
     PartitionBlock initialBlock;
     initialBlock.start = 0;
     initialBlock.size = m_maxOverallMem;
@@ -29,7 +28,6 @@ bool MemoryManager::allocateFirstFit(const std::string& processName) {
                 m_blocks[i].assignedProcessName = processName;
             }
             else {
-                // Notice we now use .start instead of .startAddress
                 uint32_t originalSize = m_blocks[i].size;
                 uint32_t originalStart = m_blocks[i].start;
 
@@ -66,7 +64,6 @@ void MemoryManager::freeMemory(const std::string& processName) {
         }
     }
 
-    // Coalescing step
     for (size_t i = 0; i < m_blocks.size() - 1; ) {
         if (!m_blocks[i].isAllocated && !m_blocks[i + 1].isAllocated) {
             m_blocks[i].size += m_blocks[i + 1].size;
