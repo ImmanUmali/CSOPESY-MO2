@@ -18,7 +18,6 @@ public:
     BackingStore();
     ~BackingStore() = default;
 
-    // Updated writePageToFile to handle formatted byte hex dumps
     void writePageToFile(int pid, size_t vpn, const std::vector<uint8_t>& pageData);
     bool readPageFromFile(const std::string& pageKey, std::string& outData);
 
