@@ -102,11 +102,37 @@ void Process::addLog(const std::string& message) {
 void Process::evaluateInstruction(const Instruction& ins, int coreId) {
     switch (ins.op) {
     case OpCode::PRINT: {
-        // Only print operations generate visible screen history rows
-        std::stringstream formattedLog;
-        formattedLog << "(" << getCurrentTimestampString() << ") Core:" << coreId << " "
-            << "\"Hello world from " << m_name << "!\"";
-        addLog(formattedLog.str());
+        std::string printOutput = "";
+
+        if (ins.args.empty()) {
+            printOutput = "Hello world from " + m_name + "!";
+        } else {
+            for (size_t i = 0; i < ins.args.size(); ++i) {
+                std::string arg = ins.args[i];
+                
+                // Skip '+' concatenation operators
+                if (arg == "+") continue;
+
+                // Strip any remaining backslashes or quotation marks
+                arg.erase(std::remove(arg.begin(), arg.end(), '\\'), arg.end());
+                arg.erase(std::remove(arg.begin(), arg.end(), '\"'), arg.end());
+
+                if (arg.empty()) continue;
+
+                // Check if argument is in symbol table
+                if (m_symbolTable.find(arg) != m_symbolTable.end()) {
+                    // If there's already text in the buffer and it doesn't end with a space, add one!
+                    if (!printOutput.empty() && printOutput.back() != ' ') {
+                        printOutput += " ";
+                    }
+                    printOutput += std::to_string(m_symbolTable[arg]);
+                } else {
+                    printOutput += arg;
+                }
+            }
+        }
+
+        addLog(printOutput);
         break;
     }
     case OpCode::DECLARE: {
